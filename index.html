@@ -147,8 +147,8 @@
   .lock-err{color:var(--neg);font-size:14px;min-height:20px;margin-top:10px}
 
   /* interruttore Conti / Spesa */
-  .tabs{display:grid;grid-template-columns:1fr 1fr 1fr;background:rgba(255,255,255,.14);border-radius:14px;padding:4px;margin-top:14px;gap:4px}
-  .tabs button{height:40px;border-radius:11px;font-weight:700;color:rgba(255,255,255,.85);font-size:15px}
+  .tabs{display:grid;grid-template-columns:repeat(4,1fr);background:rgba(255,255,255,.14);border-radius:14px;padding:4px;margin-top:14px;gap:4px}
+  .tabs button{height:40px;border-radius:11px;font-weight:700;color:rgba(255,255,255,.85);font-size:13.5px;padding:0 2px}
   .tabs button.on{background:#fff;color:var(--brand)}
   [hidden]{display:none !important}
 
@@ -221,6 +221,31 @@
   .det-row small{color:var(--muted);font-weight:500;margin-left:6px}
   .det-row b{white-space:nowrap}
   .note{font-size:12px;color:var(--muted);margin-top:8px;line-height:1.4}
+
+  /* calendario */
+  :root{ --evento:#1f6f9c }
+  .cal-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+  .cal-nav h2{font-size:18px;margin:0}
+  .cal-nav button{width:40px;height:40px;border-radius:12px;background:var(--brand-soft);color:var(--brand);font-size:20px;font-weight:700}
+  .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+  .cal-dow{font-size:11px;font-weight:700;color:var(--muted);text-align:center;text-transform:uppercase;padding:2px 0 4px}
+  .cal-day{aspect-ratio:1/1;border-radius:11px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:15px;font-weight:600;position:relative;background:#f6f8fa;color:var(--ink)}
+  .cal-day.out{background:none;color:#c3ccd5}
+  .cal-day.oggi{box-shadow:inset 0 0 0 2px var(--brand-2)}
+  .cal-day.ev{background:var(--evento);color:#fff}
+  .cal-day.ev svg{width:26px;height:13px;margin-top:1px}
+  .cal-day.sel{outline:3px solid #9ec5dd;outline-offset:1px}
+  .ev-item{display:flex;gap:12px;align-items:center;padding:12px 0;border-bottom:1px solid var(--line);width:100%;text-align:left}
+  .ev-item:last-child{border-bottom:0}
+  .ev-badge{flex:0 0 52px;height:52px;border-radius:13px;background:var(--evento);color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1}
+  .ev-badge b{font-size:19px} .ev-badge small{font-size:11px;text-transform:uppercase;font-weight:700;margin-top:2px;opacity:.9}
+  .ev-badge svg{width:18px;height:10px;margin-top:3px}
+  .ev-txt{flex:1;min-width:0}
+  .ev-txt b{display:block;font-size:15px;line-height:1.3}
+  .ev-txt span{font-size:13px;color:var(--muted)}
+  .ev-when{font-size:12px;font-weight:700;color:var(--evento);background:var(--brand-soft);padding:4px 8px;border-radius:8px;white-space:nowrap}
+  .ev-when.oggi{background:var(--evento);color:#fff}
+  .input[type=date]{appearance:none;-webkit-appearance:none}
 </style>
 </head>
 <body>
@@ -260,6 +285,7 @@
       <button data-view="conti" class="on">Conti</button>
       <button data-view="riepilogo">Riepilogo</button>
       <button data-view="spesa">Spesa</button>
+      <button data-view="calendario">Calendario</button>
     </div>
   </div>
 </header>
@@ -278,6 +304,23 @@
   <div class="list" id="spesaList">
     <div class="skeleton"></div><div class="skeleton"></div>
   </div>
+</main>
+
+<main class="wrap" id="viewCal" hidden>
+  <section class="hero" id="calHero">
+    <div class="hero-label">Prossima data importante</div>
+    <div id="calNext"><div class="hero-who">—</div></div>
+  </section>
+  <section class="card">
+    <div class="cal-nav">
+      <button id="calPrev" aria-label="Mese precedente">‹</button>
+      <h2 id="calTitle">—</h2>
+      <button id="calNextM" aria-label="Mese successivo">›</button>
+    </div>
+    <div class="cal-grid" id="calGrid"></div>
+  </section>
+  <section class="card" id="calDay"></section>
+  <section class="card" id="calList"></section>
 </main>
 
 <main class="wrap" id="viewRiep" hidden>
@@ -341,7 +384,7 @@
 
 <button class="fab" id="btnAdd">
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
-  Nuova spesa
+  <span id="fabLabel">Nuova spesa</span>
 </button>
 
 <div class="backdrop" id="backdrop"></div>
@@ -409,6 +452,33 @@
     <div class="actions">
       <button class="btn btn-danger" id="btnDelete" hidden>Elimina</button>
       <button class="btn btn-primary" id="btnSave">Salva</button>
+    </div>
+  </div>
+</div>
+
+<!-- Form data importante -->
+<div class="sheet" id="sheetData" role="dialog" aria-modal="true">
+  <div class="sheet-inner">
+    <div class="grab"></div>
+    <h3 id="dTitle">Nuova data</h3>
+    <div class="field">
+      <label for="dTitolo">Titolo</label>
+      <input class="input" id="dTitolo" placeholder="Es. Compleanno di Ale" autocomplete="off">
+      <div class="hint">Scrivi <b>{anni}</b> nel titolo per far contare gli anni da soli: "Anniversario - {anni} anni insieme!"</div>
+    </div>
+    <div class="field">
+      <label for="dData">Data</label>
+      <input class="input" id="dData" type="date">
+      <div class="hint">Per un anniversario o un compleanno metti la data originale (l'anno in cui è iniziato).</div>
+    </div>
+    <label class="switch" for="dAnnuale">
+      <span><b>Ogni anno</b><small>La data torna tutti gli anni nello stesso giorno</small></span>
+      <input type="checkbox" id="dAnnuale">
+    </label>
+    <div class="preview" id="dPreview"></div>
+    <div class="actions">
+      <button class="btn btn-danger" id="dDelete" hidden>Elimina</button>
+      <button class="btn btn-primary" id="dSave">Salva</button>
     </div>
   </div>
 </div>
@@ -811,7 +881,7 @@
   }
 
   /* ---------- eventi ---------- */
-  $('#btnAdd').addEventListener('click', () => openForm(null));
+  $('#btnAdd').addEventListener('click', () => view === 'calendario' ? openData(null) : openForm(null));
   $('#btnRefresh').addEventListener('click', () => loadView(true));
   $('#btnRimborso').addEventListener('click', openRimborso);
   $('#backdrop').addEventListener('click', closeSheets);
@@ -1302,6 +1372,180 @@
     rg.sel = Number(g.dataset.k); renderRiep();
   });
 
+  /* =================================================================
+   *  CALENDARIO DELLE DATE IMPORTANTI
+   * ================================================================= */
+  const ACCIUGA = '<svg viewBox="0 0 40 20" aria-hidden="true"><path d="M2 10C8 3.5 21 2.5 29 10 21 17.5 8 16.5 2 10Z" fill="currentColor"/><path d="M28 10 38 3.5 35.5 10 38 16.5Z" fill="currentColor"/><path d="M8 10.4H25" stroke="var(--evento)" stroke-width="1.3" stroke-linecap="round" opacity=".55"/><circle cx="7" cy="8.6" r="1.3" fill="var(--evento)"/></svg>';
+  const GIORNI = ['Lun','Mar','Mer','Gio','Ven','Sab','Dom'];
+  const oggiD = () => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), d.getDate()); };
+  const iso = d => d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+  const daIso = s => { const p = String(s).split('-').map(Number); return new Date(p[0], p[1]-1, p[2]); };
+  const cal = { y: new Date().getFullYear(), m: new Date().getMonth(), sel: iso(oggiD()), date: null };
+  let dataEdit = null;
+
+  const demoD = { date: [ { row: 2, data: '2023-10-28', titolo: 'Anniversario Acciughì - {anni} anni insieme!', annuale: true } ] };
+  Object.assign(DEMO_LISTA, {
+    getDate: () => JSON.parse(JSON.stringify(demoD)),
+    saveData: d => {
+      if (d.row) Object.assign(demoD.date.find(x => x.row === d.row), { data: d.data, titolo: d.titolo, annuale: !!d.annuale });
+      else demoD.date.push({ row: Math.max(1, ...demoD.date.map(x => x.row)) + 1, data: d.data, titolo: d.titolo, annuale: !!d.annuale });
+      return JSON.parse(JSON.stringify(demoD));
+    },
+    deleteData: row => { demoD.date = demoD.date.filter(x => x.row !== row); return JSON.parse(JSON.stringify(demoD)); }
+  });
+
+  // giorno dell'evento in un certo anno (29 febbraio -> 28 negli anni non bisestili)
+  function nellAnno(ev, y){
+    const o = daIso(ev.data);
+    const d = new Date(y, o.getMonth(), o.getDate());
+    return d.getMonth() === o.getMonth() ? d : new Date(y, o.getMonth() + 1, 0);
+  }
+  function titoloEv(ev, y){
+    const n = y - daIso(ev.data).getFullYear();
+    return ev.titolo.replace(/\{anni\}/gi, String(n));
+  }
+  function eventiDelGiorno(d){
+    return (cal.date || []).filter(ev => {
+      const o = daIso(ev.data);
+      if (!ev.annuale) return iso(o) === iso(d);
+      return d.getFullYear() >= o.getFullYear() && iso(nellAnno(ev, d.getFullYear())) === iso(d);
+    });
+  }
+  function prossime(){
+    const t = oggiD(), out = [];
+    (cal.date || []).forEach(ev => {
+      let d;
+      if (ev.annuale) {
+        const o = daIso(ev.data);
+        d = nellAnno(ev, Math.max(t.getFullYear(), o.getFullYear()));
+        if (d < t) d = nellAnno(ev, t.getFullYear() + 1);
+      } else { d = daIso(ev.data); if (d < t) return; }
+      out.push({ ev, d, giorni: Math.round((d - t) / 86400000) });
+    });
+    return out.sort((a, b) => a.d - b.d);
+  }
+  const quandoEv = g => g === 0 ? 'Oggi!' : g === 1 ? 'Domani' : 'tra ' + g + ' giorni';
+  const dataLunga = d => d.getDate() + ' ' + MESI[d.getMonth()].toLowerCase() + ' ' + d.getFullYear();
+
+  function badge(d){ return '<div class="ev-badge"><b>' + d.getDate() + '</b><small>' + MESI_BREVI[d.getMonth()] + '</small>' + ACCIUGA + '</div>'; }
+  function riga(p){
+    return '<button class="ev-item" data-row="' + p.ev.row + '">' + badge(p.d)
+      + '<div class="ev-txt"><b>' + esc(titoloEv(p.ev, p.d.getFullYear())) + '</b><span>' + dataLunga(p.d) + (p.ev.annuale ? ' · ogni anno' : '') + '</span></div>'
+      + (p.giorni !== undefined ? '<span class="ev-when' + (p.giorni === 0 ? ' oggi' : '') + '">' + quandoEv(p.giorni) + '</span>' : '') + '</button>';
+  }
+
+  function renderCal(){
+    if (view !== 'calendario' || !cal.date) return;
+    // prossima data
+    const pr = prossime();
+    if (pr.length) {
+      const p = pr[0];
+      $('#calNext').innerHTML = '<div class="hero-who" style="font-size:19px;line-height:1.3">' + esc(titoloEv(p.ev, p.d.getFullYear())) + '</div>'
+        + '<div class="hero-amount zero" style="font-size:30px">' + (p.giorni === 0 ? 'Oggi!' : p.giorni === 1 ? 'Domani' : 'Tra ' + p.giorni + ' giorni') + '</div>'
+        + '<div class="rg-delta">' + cap(GIORNI[(p.d.getDay() + 6) % 7].toLowerCase()) + ' ' + dataLunga(p.d) + '</div>';
+    } else $('#calNext').innerHTML = '<div class="hero-who">Nessuna data in programma</div><div class="rg-delta">Aggiungine una con "Nuova data".</div>';
+
+    // griglia del mese
+    $('#calTitle').textContent = cap(MESI[cal.m].toLowerCase()) + ' ' + cal.y;
+    const primo = new Date(cal.y, cal.m, 1), inizio = (primo.getDay() + 6) % 7;
+    const t = iso(oggiD());
+    let g = GIORNI.map(x => '<div class="cal-dow">' + x + '</div>').join('');
+    for (let i = 0; i < 42; i++) {
+      const d = new Date(cal.y, cal.m, 1 - inizio + i);
+      if (i >= 35 && d.getMonth() !== cal.m) break;
+      const fuori = d.getMonth() !== cal.m, evs = eventiDelGiorno(d), k = iso(d);
+      g += '<button class="cal-day' + (fuori ? ' out' : '') + (evs.length && !fuori ? ' ev' : '') + (k === t ? ' oggi' : '') + (k === cal.sel && !fuori ? ' sel' : '') + '" data-d="' + k + '"'
+        + (evs.length ? ' aria-label="' + esc(d.getDate() + ' ' + MESI[d.getMonth()].toLowerCase() + ': ' + evs.map(e => titoloEv(e, d.getFullYear())).join(', ')) + '"' : '') + '>'
+        + d.getDate() + (evs.length && !fuori ? ACCIUGA : '') + '</button>';
+    }
+    $('#calGrid').innerHTML = g;
+
+    // giorno selezionato
+    const ds = daIso(cal.sel), evs = eventiDelGiorno(ds);
+    $('#calDay').innerHTML = '<div class="det-head"><h2>' + cap(GIORNI[(ds.getDay() + 6) % 7].toLowerCase()) + ' ' + dataLunga(ds) + '</h2></div>'
+      + (evs.length ? evs.map(ev => riga({ ev, d: ds })).join('') : '<div class="hint" style="margin:4px 0 2px">Nessuna data importante in questo giorno. Tocca "Nuova data" per aggiungerne una.</div>');
+
+    // elenco
+    $('#calList').innerHTML = '<div class="det-head"><h2>Prossime date</h2><span class="hint" style="margin:0">' + (cal.date.length) + ' in calendario</span></div>'
+      + (pr.length ? pr.slice(0, 12).map(riga).join('') : '<div class="hint">Ancora nessuna data.</div>');
+  }
+
+  async function loadCal(showToast){
+    $('#btnRefresh').classList.add('spin');
+    try {
+      const r = await call('getDate');
+      cal.date = r.date || [];
+      renderCal();
+      if (showToast) toast('Calendario aggiornato');
+    } catch(e) {
+      if (e && e.code === 'AUTH') return;
+      const msg = /non riconosciuta/i.test(errMsg(e)) ? 'Per usare il calendario va aggiornato lo script del foglio (Code.gs versione 4).' : errMsg(e);
+      $('#calNext').innerHTML = '<div class="hero-who" style="font-size:16px">' + esc(msg) + '</div>';
+      $('#calGrid').innerHTML = ''; $('#calDay').innerHTML = ''; $('#calList').innerHTML = '';
+      toast(msg, true);
+    } finally { $('#btnRefresh').classList.remove('spin'); }
+  }
+
+  function openData(ev){
+    dataEdit = ev || null;
+    $('#dTitle').textContent = ev ? 'Modifica data' : 'Nuova data';
+    $('#dDelete').hidden = !ev;
+    $('#dTitolo').value = ev ? ev.titolo : '';
+    $('#dData').value = ev ? ev.data : cal.sel;
+    $('#dAnnuale').checked = ev ? !!ev.annuale : false;
+    anteprimaData();
+    openSheet('#sheetData');
+    if (!ev) setTimeout(() => $('#dTitolo').focus(), 260);
+  }
+  function anteprimaData(){
+    const t = $('#dTitolo').value.trim(), v = $('#dData').value;
+    if (!t || !v) { $('#dPreview').innerHTML = 'Inserisci titolo e data.'; return; }
+    const ev = { titolo: t, data: v, annuale: $('#dAnnuale').checked };
+    const tmp = cal.date; cal.date = [ev]; const nx = prossime()[0]; cal.date = tmp;
+    if (!nx) { $('#dPreview').innerHTML = 'Questa data è già passata e non si ripete: resterà visibile solo nel calendario di quel mese.'; return; }
+    $('#dPreview').innerHTML = 'Comparirà il <b>' + dataLunga(nx.d) + '</b> (' + quandoEv(nx.giorni).toLowerCase() + ') come:<br><b>' + esc(titoloEv(ev, nx.d.getFullYear())) + '</b>';
+  }
+  async function salvaData(){
+    if (busy) return;
+    const titolo = $('#dTitolo').value.trim(), data = $('#dData').value;
+    if (!titolo) return toast('Inserisci il titolo', true);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(data)) return toast('Scegli la data', true);
+    busy = true; $('#dSave').disabled = true; $('#dSave').textContent = 'Salvo…';
+    try {
+      const r = await call('saveData', { row: dataEdit ? dataEdit.row : null, titoloOriginale: dataEdit ? dataEdit.titolo : '', titolo, data, annuale: $('#dAnnuale').checked });
+      cal.date = r.date || [];
+      const d = daIso(data); if (!$('#dAnnuale').checked) { cal.y = d.getFullYear(); cal.m = d.getMonth(); cal.sel = data; }
+      closeSheets(); renderCal(); toast(dataEdit ? 'Data aggiornata' : 'Data aggiunta');
+    } catch(e) { toast(errMsg(e), true); }
+    finally { busy = false; $('#dSave').disabled = false; $('#dSave').textContent = 'Salva'; }
+  }
+  async function eliminaData(){
+    if (!dataEdit || busy) return;
+    if (!confirm('Eliminare "' + titoloEv(dataEdit, new Date().getFullYear()) + '"?')) return;
+    busy = true;
+    try { const r = await call('deleteData', dataEdit.row, dataEdit.titolo); cal.date = r.date || []; closeSheets(); renderCal(); toast('Data eliminata'); }
+    catch(e) { toast(errMsg(e), true); }
+    finally { busy = false; }
+  }
+
+  $('#calPrev').addEventListener('click', () => { cal.m--; if (cal.m < 0) { cal.m = 11; cal.y--; } renderCal(); });
+  $('#calNextM').addEventListener('click', () => { cal.m++; if (cal.m > 11) { cal.m = 0; cal.y++; } renderCal(); });
+  $('#calGrid').addEventListener('click', e => {
+    const b = e.target.closest('.cal-day'); if (!b) return;
+    const d = daIso(b.dataset.d);
+    cal.sel = b.dataset.d;
+    if (d.getMonth() !== cal.m) { cal.m = d.getMonth(); cal.y = d.getFullYear(); }
+    renderCal();
+  });
+  ['#calDay','#calList'].forEach(id => $(id).addEventListener('click', e => {
+    const b = e.target.closest('.ev-item'); if (!b) return;
+    const ev = (cal.date || []).find(x => x.row === Number(b.dataset.row)); if (ev) openData(ev);
+  }));
+  ['#dTitolo','#dData'].forEach(id => $(id).addEventListener('input', anteprimaData));
+  $('#dAnnuale').addEventListener('change', anteprimaData);
+  $('#dSave').addEventListener('click', salvaData);
+  $('#dDelete').addEventListener('click', eliminaData);
+
   /* --- cambio sezione --- */
   function setView(v){
     view = v;
@@ -1310,11 +1554,13 @@
     $('#viewConti').hidden = v !== 'conti';
     $('#viewSpesa').hidden = v !== 'spesa';
     $('#viewRiep').hidden = v !== 'riepilogo';
-    $('#btnAdd').hidden = v !== 'conti';
+    $('#viewCal').hidden = v !== 'calendario';
+    $('#btnAdd').hidden = v !== 'conti' && v !== 'calendario';
+    $('#fabLabel').textContent = v === 'calendario' ? 'Nuova data' : 'Nuova spesa';
     $('#updated').textContent = v === 'spesa' ? 'Lista della spesa' : (state.aggiornato ? 'Aggiornato alle ' + state.aggiornato : '');
     loadView(false);
   }
-  function loadView(showToast){ return view === 'spesa' ? loadSpesa(showToast) : load(showToast); }
+  function loadView(showToast){ return view === 'spesa' ? loadSpesa(showToast) : view === 'calendario' ? loadCal(showToast) : load(showToast); }
   $('#tabs').addEventListener('click', e => { const b = e.target.closest('button'); if (b && b.dataset.view !== view) setView(b.dataset.view); });
 
   /* ---------- accesso ---------- */
@@ -1362,7 +1608,7 @@
   }
 
   /* ---------- avvio ---------- */
-  try { const v = localStorage.getItem('ma_vista'); if (v === 'spesa' || v === 'conti' || v === 'riepilogo') view = v; } catch(e){}
+  try { const v = localStorage.getItem('ma_vista'); if (['spesa','conti','riepilogo','calendario'].includes(v)) view = v; } catch(e){}
   if (IS_DEMO) $('#demoBar').hidden = false;
   if (!IS_DEMO && !store.get()) showLock('');
   else setView(view);

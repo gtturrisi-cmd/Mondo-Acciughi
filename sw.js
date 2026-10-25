@@ -1,6 +1,6 @@
 // Service worker: tiene in memoria solo il "guscio" dell'app (grafica e codice),
 // mai i dati delle spese, che vengono sempre letti dal foglio in tempo reale.
-const CACHE = 'acciughi-v4';
+const CACHE = 'acciughi-v5';
 const SHELL = ['./', 'index.html', 'config.js', 'manifest.webmanifest',
                'icon-192.png', 'icon-512.png', 'icon-maskable-512.png'];
 
