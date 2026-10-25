@@ -147,7 +147,7 @@
   .lock-err{color:var(--neg);font-size:14px;min-height:20px;margin-top:10px}
 
   /* interruttore Conti / Spesa */
-  .tabs{display:grid;grid-template-columns:1fr 1fr;background:rgba(255,255,255,.14);border-radius:14px;padding:4px;margin-top:14px;gap:4px}
+  .tabs{display:grid;grid-template-columns:1fr 1fr 1fr;background:rgba(255,255,255,.14);border-radius:14px;padding:4px;margin-top:14px;gap:4px}
   .tabs button{height:40px;border-radius:11px;font-weight:700;color:rgba(255,255,255,.85);font-size:15px}
   .tabs button.on{background:#fff;color:var(--brand)}
   [hidden]{display:none !important}
@@ -195,6 +195,32 @@
   .shops button.on{background:var(--brand);color:#fff}
   .toggle{display:flex;align-items:center;gap:10px;font-weight:600;font-size:15px;padding:6px 0}
   .toggle input{width:22px;height:22px;accent-color:var(--brand)}
+
+  /* sezione riepilogo */
+  :root{ --c-peppe:#1f6f9c; --c-ale:#9a62d0; --grid:#e8edf2 }
+  .card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:14px;margin-top:12px}
+  .ctrls{display:flex;flex-direction:column;gap:8px;margin-top:14px}
+  .ctrls .seg button{height:38px;font-size:13px}
+  .rg-sub{font-size:14px;color:var(--muted);margin-top:2px}
+  .rg-delta{font-size:13px;font-weight:600;color:var(--muted);margin-top:6px}
+  .legend{display:flex;gap:16px;font-size:13px;color:var(--muted);font-weight:600;margin:2px 2px 8px}
+  .legend span{display:flex;align-items:center;gap:6px}
+  .legend i{width:10px;height:10px;border-radius:3px;display:inline-block}
+  .chart svg{display:block;width:100%;height:auto;overflow:visible}
+  .chart .bar{cursor:pointer}
+  .chart-hint{font-size:12px;color:var(--muted);margin-top:4px;text-align:center}
+  .share{display:flex;height:10px;border-radius:5px;overflow:hidden;gap:2px;margin:10px 0 6px;background:var(--card)}
+  .share div{height:100%}
+  .share-lab{display:flex;justify-content:space-between;font-size:14px}
+  .share-lab b{font-size:16px}
+  .det-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px}
+  .det-head h2{font-size:16px;margin:0}
+  .det-row{display:flex;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px solid var(--line);font-size:14px}
+  .det-row:last-child{border-bottom:0}
+  .det-row span:first-child{font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .det-row small{color:var(--muted);font-weight:500;margin-left:6px}
+  .det-row b{white-space:nowrap}
+  .note{font-size:12px;color:var(--muted);margin-top:8px;line-height:1.4}
 </style>
 </head>
 <body>
@@ -232,6 +258,7 @@
     <div class="updated" id="updated">Caricamento…</div>
     <div class="tabs" id="tabs">
       <button data-view="conti" class="on">Conti</button>
+      <button data-view="riepilogo">Riepilogo</button>
       <button data-view="spesa">Spesa</button>
     </div>
   </div>
@@ -251,6 +278,40 @@
   <div class="list" id="spesaList">
     <div class="skeleton"></div><div class="skeleton"></div>
   </div>
+</main>
+
+<main class="wrap" id="viewRiep" hidden>
+  <section class="hero">
+    <div class="hero-label" id="rgLabel">Spese</div>
+    <div class="hero-who" id="rgPeriod">—</div>
+    <div class="hero-amount zero" id="rgAmount">€ 0,00</div>
+    <div class="rg-delta" id="rgDelta"></div>
+    <div class="ctrls">
+      <div class="seg" id="rgGran">
+        <button data-v="mese" class="on">Mese</button>
+        <button data-v="trim">Trimestre</button>
+        <button data-v="anno">Anno</button>
+      </div>
+      <div class="seg" id="rgWho">
+        <button data-v="peppe">Peppe</button>
+        <button data-v="ale">Ale</button>
+        <button data-v="insieme" class="on">Insieme</button>
+      </div>
+      <div class="seg" id="rgBase">
+        <button data-v="carico" class="on">A carico</button>
+        <button data-v="pagato">Pagato</button>
+      </div>
+      <div class="hint" id="rgBaseHint"></div>
+    </div>
+  </section>
+
+  <section class="card chart">
+    <div class="legend" id="rgLegend"></div>
+    <div id="rgChart"></div>
+    <div class="chart-hint">Tocca una barra per vedere il dettaglio</div>
+  </section>
+
+  <section class="card" id="rgDetail"></section>
 </main>
 
 <main class="wrap" id="viewConti">
@@ -617,6 +678,7 @@
     try {
       state = await call('getData');
       render();
+      renderRiep();
       if (showToast) toast('Dati aggiornati');
     } catch(e) {
       if (e && e.code === 'AUTH') { showLock(errMsg(e)); return; }
@@ -1060,6 +1122,186 @@
   $('#prPrezzo').addEventListener('keydown', e => { if (e.key === 'Enter') salvaPrezzo(); });
   $('#prBack').addEventListener('click', () => { const p = lista.prodotti.find(x => x.prodotto === prodAperto); closeSheets(); if (p) openProdotto(p); });
 
+  /* =================================================================
+   *  RIEPILOGO: spese per mese / trimestre / anno
+   *  "A carico" = quota di spesa di ciascuno (QUOTA ALE / QUOTA PEPPE)
+   *  "Pagato"   = soldi usciti di tasca (PAGATO ALE / PAGATO PEPPE)
+   *  Le righe di rimborso sono passaggi di denaro tra voi, non spese:
+   *  restano fuori dal riepilogo.
+   * ================================================================= */
+  const MESI_BREVI = ['gen','feb','mar','apr','mag','giu','lug','ago','set','ott','nov','dic'];
+  const TRIM_NOMI = ['I','II','III','IV'];
+  const rg = { gran: 'mese', who: 'insieme', base: 'carico', sel: null };
+  try { Object.assign(rg, JSON.parse(localStorage.getItem('ma_riepilogo') || '{}'), { sel: null }); } catch(e){}
+  function salvaRg(){ try { localStorage.setItem('ma_riepilogo', JSON.stringify({gran: rg.gran, who: rg.who, base: rg.base})); } catch(e){} }
+
+  const fmt0 = n => new Intl.NumberFormat('it-IT',{style:'currency',currency:'EUR',maximumFractionDigits:0}).format(n);
+  const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
+
+  function meseRiga(r){
+    for (const m of [r.meseFattura, r.periodo, r.meseSaldo]) { const i = MESI.indexOf(String(m || '').toUpperCase()); if (i > -1) return i; }
+    return -1;
+  }
+  function quoteRiga(r){
+    let qa = r.quotaAle, qp = r.quotaPeppe;
+    if ((qa === null || qa === undefined) && r.totale !== null && r.totale !== undefined) { const c = calcRow(Object.assign({}, r)); qa = c.quotaAle; qp = c.quotaPeppe; }
+    return { ale: qa || 0, peppe: qp || 0 };
+  }
+  function chiave(y, m){ return rg.gran === 'mese' ? y*12 + m : rg.gran === 'trim' ? y*4 + Math.floor(m/3) : y; }
+  function nomePeriodo(k, breve){
+    if (rg.gran === 'mese') { const y = Math.floor(k/12), m = k % 12; return breve ? MESI_BREVI[m] : cap(MESI[m].toLowerCase()) + ' ' + y; }
+    if (rg.gran === 'trim') { const y = Math.floor(k/4), q = k % 4; return breve ? TRIM_NOMI[q] + ' ' + String(y).slice(2) : TRIM_NOMI[q] + ' trimestre ' + y; }
+    return String(k);
+  }
+  function datiRiep(){
+    const oggi = new Date(), yOggi = oggi.getFullYear(), kOggi = chiave(yOggi, oggi.getMonth());
+    const per = {}; let senzaMese = 0;
+    state.rows.forEach(r => {
+      if (/^RIMBORSO/.test(r.voce || '')) return;
+      if (r.totale === null || r.totale === undefined) return;
+      const m = meseRiga(r);
+      if (m < 0) { senzaMese++; return; }
+      const y = parseInt(r.anno, 10) || yOggi;
+      const k = chiave(y, m);
+      const v = rg.base === 'carico' ? quoteRiga(r) : { ale: r.pagatoAle || 0, peppe: r.pagatoPeppe || 0 };
+      const p = per[k] || (per[k] = { ale: 0, peppe: 0, voci: [] });
+      p.ale = round(p.ale + v.ale); p.peppe = round(p.peppe + v.peppe);
+      p.voci.push({ voce: r.voce, ale: v.ale, peppe: v.peppe, totale: r.totale, saldato: r.saldato });
+    });
+    const chiavi = Object.keys(per).map(Number);
+    const kMax = Math.max(kOggi, ...chiavi);
+    const n = rg.gran === 'mese' ? 12 : rg.gran === 'trim' ? 8 : Math.max(1, Math.min(6, kMax - Math.min(kMax, ...chiavi) + 1));
+    const serie = [];
+    for (let k = kMax - n + 1; k <= kMax; k++) serie.push({ k, ale: (per[k] || {}).ale || 0, peppe: (per[k] || {}).peppe || 0, voci: (per[k] || {}).voci || [] });
+    return { serie, kOggi, senzaMese };
+  }
+  const valore = p => rg.who === 'ale' ? p.ale : rg.who === 'peppe' ? p.peppe : round(p.ale + p.peppe);
+
+  function renderRiep(){
+    if (view !== 'riepilogo') return;
+    setSeg('#rgGran', rg.gran); setSeg('#rgWho', rg.who); setSeg('#rgBase', rg.base);
+    $('#rgBaseHint').textContent = rg.base === 'carico'
+      ? 'A carico: la parte di ogni spesa che spetta a ciascuno, anche se l\'ha anticipata l\'altro.'
+      : 'Pagato: i soldi effettivamente usciti dalla tasca di ciascuno.';
+    const { serie, kOggi, senzaMese } = datiRiep();
+    if (rg.sel === null || !serie.some(p => p.k === rg.sel)) {
+      const conDati = serie.filter(p => p.voci.length);
+      rg.sel = serie.some(p => p.k === kOggi) && (serie.find(p => p.k === kOggi).voci.length || !conDati.length) ? kOggi
+             : conDati.length ? conDati[conDati.length - 1].k : serie[serie.length - 1].k;
+    }
+    const sel = serie.find(p => p.k === rg.sel);
+    const chi = rg.who === 'ale' ? 'di Ale' : rg.who === 'peppe' ? 'di Peppe' : 'insieme';
+    $('#rgLabel').textContent = (rg.base === 'carico' ? 'Spese a carico ' : 'Pagato ') + chi;
+    $('#rgPeriod').textContent = nomePeriodo(sel.k, false);
+    const tot = valore(sel);
+    $('#rgAmount').textContent = fmt(tot);
+    $('#rgAmount').className = 'hero-amount zero';
+    const prev = serie.find(p => p.k === sel.k - 1);
+    let d = '';
+    if (prev && valore(prev) > 0) {
+      const diff = tot - valore(prev), pct = Math.round(diff / valore(prev) * 100);
+      d = (diff >= 0 ? '▲ ' : '▼ ') + (diff >= 0 ? '+' : '−') + fmt(Math.abs(diff)) + ' (' + (pct >= 0 ? '+' : '') + pct + '%) rispetto a ' + nomePeriodo(prev.k, false).toLowerCase().replace(/^([ivx]+) /, (m, r) => r.toUpperCase() + ' ');
+    } else if (prev) d = 'Nessuna spesa nel periodo precedente';
+    $('#rgDelta').textContent = d;
+
+    // legenda
+    $('#rgLegend').innerHTML = rg.who === 'insieme'
+      ? '<span><i style="background:var(--c-peppe)"></i>Peppe</span><span><i style="background:var(--c-ale)"></i>Ale</span>'
+      : '<span><i style="background:' + (rg.who === 'ale' ? 'var(--c-ale)' : 'var(--c-peppe)') + '"></i>' + (rg.who === 'ale' ? 'Ale' : 'Peppe') + '</span>';
+    $('#rgChart').innerHTML = graficoSVG(serie);
+    renderDettaglio(sel, senzaMese);
+  }
+
+  function graficoSVG(serie){
+    const W = 340, H = 190, padL = 40, padR = 4, padT = 20, padB = 24;
+    const cw = W - padL - padR, ch = H - padT - padB;
+    const max = Math.max(0, ...serie.map(valore));
+    // scala "tonda"
+    const passi = [10,20,25,50,100,200,250,500,1000,2000,2500,5000,10000,20000,25000,50000];
+    let step = passi.find(s => s * 3 >= max) || Math.ceil(max / 3);
+    const top = Math.max(step * 3, 1);
+    const y = v => padT + ch - (v / top) * ch;
+    const band = cw / serie.length, bw = Math.min(24, band * 0.62);
+    let s = '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Grafico delle spese per periodo">';
+    for (let i = 0; i <= 3; i++) {
+      const v = step * i, yy = y(v);
+      s += '<line x1="' + padL + '" x2="' + (W - padR) + '" y1="' + yy + '" y2="' + yy + '" stroke="var(--grid)" stroke-width="1"/>';
+      s += '<text x="' + (padL - 6) + '" y="' + (yy + 4) + '" text-anchor="end" font-size="10" fill="var(--muted)">' + (max > 0 || i === 0 ? fmt0(v) : '') + '</text>';
+    }
+    const arrot = (x, yTop, w, h) => {   // barra con estremità superiore arrotondata (4px), base quadrata
+      if (h <= 0) return '';
+      const r = Math.min(4, h, w / 2);
+      return 'M' + x + ',' + (yTop + h) + 'V' + (yTop + r) + 'Q' + x + ',' + yTop + ' ' + (x + r) + ',' + yTop + 'H' + (x + w - r) + 'Q' + (x + w) + ',' + yTop + ' ' + (x + w) + ',' + (yTop + r) + 'V' + (yTop + h) + 'Z';
+    };
+    serie.forEach((p, i) => {
+      const x = padL + band * i + (band - bw) / 2, cx = padL + band * i + band / 2;
+      const on = p.k === rg.sel, op = on ? 1 : 0.42;
+      const tip = nomePeriodo(p.k, false) + ': ' + fmt(valore(p)) + (rg.who === 'insieme' ? ' (Peppe ' + fmt(p.peppe) + ', Ale ' + fmt(p.ale) + ')' : '');
+      s += '<g class="bar" data-k="' + p.k + '"><title>' + esc(tip) + '</title>';
+      s += '<rect x="' + (padL + band * i) + '" y="' + padT + '" width="' + band + '" height="' + (ch + padB) + '" fill="transparent"/>';
+      if (rg.who === 'insieme') {
+        const hP = Math.max(0, y(0) - y(p.peppe)), hA = Math.max(0, y(0) - y(p.ale));
+        const gap = hP > 0 && hA > 0 ? 2 : 0;
+        if (hA > 0) {
+          if (hP > 0) s += '<rect x="' + x + '" y="' + (y(0) - hP) + '" width="' + bw + '" height="' + hP + '" fill="var(--c-peppe)" opacity="' + op + '"/>';
+          s += '<path d="' + arrot(x, y(0) - hP - gap - Math.max(0, hA - gap), bw, Math.max(0, hA - gap)) + '" fill="var(--c-ale)" opacity="' + op + '"/>';
+        } else if (hP > 0) s += '<path d="' + arrot(x, y(0) - hP, bw, hP) + '" fill="var(--c-peppe)" opacity="' + op + '"/>';
+      } else {
+        const v = valore(p), h = Math.max(0, y(0) - y(v));
+        s += '<path d="' + arrot(x, y(0) - h, bw, h) + '" fill="' + (rg.who === 'ale' ? 'var(--c-ale)' : 'var(--c-peppe)') + '" opacity="' + op + '"/>';
+      }
+      if (on && valore(p) > 0) s += '<text x="' + cx + '" y="' + (y(valore(p)) - 6) + '" text-anchor="middle" font-size="11" font-weight="700" fill="var(--ink)">' + fmt0(valore(p)) + '</text>';
+      s += '<text x="' + cx + '" y="' + (H - 6) + '" text-anchor="middle" font-size="10" font-weight="' + (on ? 700 : 500) + '" fill="' + (on ? 'var(--ink)' : 'var(--muted)') + '">' + esc(nomePeriodo(p.k, true)) + '</text>';
+      s += '</g>';
+    });
+    s += '<line x1="' + padL + '" x2="' + (W - padR) + '" y1="' + y(0) + '" y2="' + y(0) + '" stroke="#c9d3dc" stroke-width="1"/>';
+    return s + '</svg>';
+  }
+
+  function renderDettaglio(sel, senzaMese){
+    let h = '';
+    const tot = round(sel.ale + sel.peppe);
+    if (rg.who === 'insieme' && tot > 0) {
+      const pp = Math.round(sel.peppe / tot * 100), pa = 100 - pp;
+      h += '<div class="share-lab"><span>Peppe <b>' + fmt(sel.peppe) + '</b></span><span>Ale <b>' + fmt(sel.ale) + '</b></span></div>'
+         + '<div class="share">' + (sel.peppe > 0 ? '<div style="width:' + pp + '%;background:var(--c-peppe)"></div>' : '') + (sel.ale > 0 ? '<div style="width:' + pa + '%;background:var(--c-ale)"></div>' : '') + '</div>'
+         + '<div class="share-lab" style="font-size:13px;color:var(--muted)"><span>' + pp + '%</span><span>' + pa + '%</span></div>';
+    }
+    if (rg.gran !== 'mese' && valore(sel) > 0) {
+      const oggi = new Date();
+      let mesi = rg.gran === 'trim' ? 3 : 12;
+      const yo = oggi.getFullYear(), kAtt = rg.gran === 'trim' ? yo*4 + Math.floor(oggi.getMonth()/3) : yo;
+      if (sel.k === kAtt) mesi = rg.gran === 'trim' ? oggi.getMonth() % 3 + 1 : oggi.getMonth() + 1;
+      h += '<div class="note" style="font-size:14px;color:var(--ink);margin:10px 0 4px">Media al mese: <b>' + fmt(round(valore(sel) / mesi)) + '</b>' + (mesi < (rg.gran === 'trim' ? 3 : 12) ? ' <span style="color:var(--muted)">(sui ' + mesi + ' mesi trascorsi)</span>' : '') + '</div>';
+    }
+    // stessa voce nello stesso periodo (es. affitto in un anno) = una riga sola con "×n"
+    const gruppi = {};
+    sel.voci.forEach(v => {
+      const g = gruppi[v.voce] || (gruppi[v.voce] = { voce: v.voce, ale: 0, peppe: 0, n: 0 });
+      g.ale = round(g.ale + v.ale); g.peppe = round(g.peppe + v.peppe); g.n++;
+    });
+    const voci = Object.values(gruppi).map(v => Object.assign(v, { val: rg.who === 'ale' ? v.ale : rg.who === 'peppe' ? v.peppe : round(v.ale + v.peppe) }))
+      .filter(v => v.val !== 0).sort((a, b) => b.val - a.val);
+    h += '<div class="det-head" style="margin-top:' + (h ? 14 : 0) + 'px"><h2>Voci · ' + esc(nomePeriodo(sel.k, false)) + '</h2><span class="hint" style="margin:0">' + sel.voci.length + (sel.voci.length === 1 ? ' spesa' : ' spese') + '</span></div>';
+    if (!voci.length) h += '<div class="empty" style="padding:18px 0">Nessuna spesa in questo periodo</div>';
+    else h += voci.map(v => '<div class="det-row"><span>' + esc(v.voce) + (v.n > 1 ? '<small>×' + v.n + '</small>' : '') + (rg.who === 'insieme' && v.ale && v.peppe ? '<small>P ' + fmt0(v.peppe) + ' · A ' + fmt0(v.ale) + '</small>' : '') + '</span><b>' + fmt(v.val) + '</b></div>').join('');
+    if (rg.base === 'pagato') h += '<div class="note">Le spese ancora da pagare non compaiono qui finché qualcuno non registra il pagamento.</div>';
+    if (senzaMese) h += '<div class="note">' + senzaMese + (senzaMese === 1 ? ' spesa non ha' : ' spese non hanno') + ' il mese compilato e ' + (senzaMese === 1 ? 'resta' : 'restano') + ' fuori dal riepilogo.</div>';
+    $('#rgDetail').innerHTML = h;
+  }
+
+  ['#rgGran','#rgWho','#rgBase'].forEach(id => $(id).addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    if (id === '#rgGran') { rg.gran = b.dataset.v; rg.sel = null; }
+    if (id === '#rgWho') rg.who = b.dataset.v;
+    if (id === '#rgBase') rg.base = b.dataset.v;
+    salvaRg(); renderRiep();
+  }));
+  $('#rgChart').addEventListener('click', e => {
+    const g = e.target.closest('.bar'); if (!g) return;
+    rg.sel = Number(g.dataset.k); renderRiep();
+  });
+
   /* --- cambio sezione --- */
   function setView(v){
     view = v;
@@ -1067,6 +1309,7 @@
     $$('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.view === v));
     $('#viewConti').hidden = v !== 'conti';
     $('#viewSpesa').hidden = v !== 'spesa';
+    $('#viewRiep').hidden = v !== 'riepilogo';
     $('#btnAdd').hidden = v !== 'conti';
     $('#updated').textContent = v === 'spesa' ? 'Lista della spesa' : (state.aggiornato ? 'Aggiornato alle ' + state.aggiornato : '');
     loadView(false);
@@ -1119,7 +1362,7 @@
   }
 
   /* ---------- avvio ---------- */
-  try { const v = localStorage.getItem('ma_vista'); if (v === 'spesa' || v === 'conti') view = v; } catch(e){}
+  try { const v = localStorage.getItem('ma_vista'); if (v === 'spesa' || v === 'conti' || v === 'riepilogo') view = v; } catch(e){}
   if (IS_DEMO) $('#demoBar').hidden = false;
   if (!IS_DEMO && !store.get()) showLock('');
   else setView(view);
