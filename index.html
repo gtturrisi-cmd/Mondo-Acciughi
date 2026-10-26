@@ -195,6 +195,14 @@
   .shops button.on{background:var(--brand);color:#fff}
   .toggle{display:flex;align-items:center;gap:10px;font-weight:600;font-size:15px;padding:6px 0}
   .toggle input{width:22px;height:22px;accent-color:var(--brand)}
+  /* selezione multipla nella lista della spesa */
+  .chip.sel-on{background:var(--neg-soft);border-color:var(--neg-soft);color:var(--neg)}
+  .prod.picked{box-shadow:inset 0 0 0 2px var(--neg),var(--shadow);background:#fff7f6}
+  .prod .check.pick span{background:#fff !important;border-color:#d9b3ae !important}
+  .prod.picked .check.pick span{background:var(--neg) !important;border-color:var(--neg) !important}
+  .selbar{position:fixed;left:0;right:0;bottom:0;z-index:6;background:var(--card);box-shadow:0 -6px 20px rgba(16,40,60,.12);
+    padding:12px 16px calc(12px + env(safe-area-inset-bottom));display:flex;gap:10px;justify-content:center}
+  .selbar .btn{max-width:260px}
 
   /* sezione riepilogo */
   :root{ --c-peppe:#1f6f9c; --c-ale:#9a62d0; --grid:#e8edf2 }
@@ -246,6 +254,11 @@
   .ev-when{font-size:12px;font-weight:700;color:var(--evento);background:var(--brand-soft);padding:4px 8px;border-radius:8px;white-space:nowrap}
   .ev-when.oggi{background:var(--evento);color:#fff}
   .input[type=date]{appearance:none;-webkit-appearance:none}
+  .pr{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+  .pr button{height:42px;border-radius:10px;background:#eef2f6;font-weight:700;font-size:13px;color:var(--muted)}
+  .pr button.on{background:var(--evento);color:#fff}
+  .pr-ora{display:flex;align-items:center;gap:10px;margin-top:10px;font-size:14px;font-weight:600;color:var(--muted)}
+  .pr-ora select{flex:1;height:44px}
 </style>
 </head>
 <body>
@@ -387,6 +400,11 @@
   <span id="fabLabel">Nuova spesa</span>
 </button>
 
+<div class="selbar" id="selBar" hidden>
+  <button class="btn btn-soft" id="selAll">Seleziona tutti</button>
+  <button class="btn btn-danger" id="selDel" disabled>Elimina</button>
+</div>
+
 <div class="backdrop" id="backdrop"></div>
 
 <!-- Form spesa -->
@@ -475,6 +493,19 @@
       <span><b>Ogni anno</b><small>La data torna tutti gli anni nello stesso giorno</small></span>
       <input type="checkbox" id="dAnnuale">
     </label>
+    <div class="field">
+      <label>Promemoria</label>
+      <div class="pr" id="dPr">
+        <button type="button" data-g="1">1 giorno prima</button>
+        <button type="button" data-g="2">2 giorni prima</button>
+        <button type="button" data-g="3">3 giorni prima</button>
+        <button type="button" data-g="7">1 settimana prima</button>
+        <button type="button" data-g="14">2 settimane prima</button>
+        <button type="button" data-g="0">Nessuno</button>
+      </div>
+      <div class="pr-ora"><span>Alle ore</span><select class="input" id="dPrOra"></select></div>
+      <div class="hint">Puoi sceglierne più di uno. Le notifiche arrivano dal calendario Google "Mondo Acciughì".</div>
+    </div>
     <div class="preview" id="dPreview"></div>
     <div class="actions">
       <button class="btn btn-danger" id="dDelete" hidden>Elimina</button>
@@ -923,6 +954,8 @@
   const VECCHIO_GIORNI = 60;   // oltre questa età un prezzo viene mostrato sbiadito
   let lista = null;            // { prodotti, storico, negozi }
   let filtroSpesa = 'comprare';
+  let selMode = false;            // modalità selezione multipla
+  const selRows = new Set();
   let prodAperto = null;
   let prezzoNeg = 'LIDL';
   let view = 'conti';
@@ -1034,7 +1067,9 @@
     $('#stima').innerHTML = stima;
 
     const opts = [['comprare','Da comprare · ' + daComprare.length], ['tutti','Tutti · ' + lista.prodotti.length]];
-    $('#spesaChips').innerHTML = opts.map(o => '<button class="chip' + (o[0] === filtroSpesa ? ' on' : '') + '" data-f="' + o[0] + '">' + esc(o[1]) + '</button>').join('');
+    $('#spesaChips').innerHTML = opts.map(o => '<button class="chip' + (o[0] === filtroSpesa ? ' on' : '') + '" data-f="' + o[0] + '">' + esc(o[1]) + '</button>').join('')
+      + (lista.prodotti.length ? '<button class="chip' + (selMode ? ' sel-on' : '') + '" data-sel="1">' + (selMode ? '✕ Annulla' : 'Seleziona') + '</button>' : '');
+    aggiornaSelBar();
 
     let ps = filtroSpesa === 'comprare' ? daComprare : lista.prodotti.slice();
     ps.sort((a,b) => (b.daComprare - a.daComprare) || a.prodotto.localeCompare(b.prodotto, 'it'));
@@ -1057,8 +1092,11 @@
       if (x.offerta) cls += ' offer';
       return '<button class="' + cls + '" data-act="price" data-neg="' + n + '"><i>' + NOMI_BREVI[n] + '</i><b>' + val + '</b></button>';
     }).join('');
-    return '<div class="prod' + (p.daComprare ? ' on' : ' off') + '" data-row="' + p.row + '">'
-      + '<button class="check" data-act="toggle" aria-label="Da comprare"><span>' + (p.daComprare ? '✓' : '') + '</span></button>'
+    const picked = selMode && selRows.has(p.row);
+    return '<div class="prod' + (p.daComprare ? ' on' : ' off') + (picked ? ' picked' : '') + '" data-row="' + p.row + '">'
+      + (selMode
+        ? '<button class="check pick" aria-label="Seleziona"><span>' + (picked ? '✓' : '') + '</span></button>'
+        : '<button class="check" data-act="toggle" aria-label="Da comprare"><span>' + (p.daComprare ? '✓' : '') + '</span></button>')
       + '<div class="prod-main"><button style="text-align:left;width:100%" data-act="open"><div class="prod-name">' + esc(p.prodotto)
       + (p.formato ? '<small>' + esc(p.formato) + '</small>' : '') + '</div></button>'
       + '<div class="pills">' + pills + '</div></div></div>';
@@ -1085,6 +1123,75 @@
     renderSpesa();
     aggiornaLista('setComprare', [p.row, p.prodotto, p.daComprare]).then(ok => { if (!ok) loadSpesa(false); });
   }
+
+  /* --- selezione multipla --- */
+  let ignoraClick = false;
+  function prodottiVisibili(){
+    return filtroSpesa === 'comprare' ? lista.prodotti.filter(p => p.daComprare) : lista.prodotti;
+  }
+  function entraSelezione(row){
+    selMode = true; selRows.clear(); if (row) selRows.add(row);
+    renderSpesa();
+  }
+  function esciSelezione(){
+    selMode = false; selRows.clear();
+    if (lista) renderSpesa(); else aggiornaSelBar();
+  }
+  function aggiornaSelBar(){
+    const on = selMode && view === 'spesa';
+    $('#selBar').hidden = !on;
+    if (!on) return;
+    // tengo solo righe ancora esistenti
+    [...selRows].forEach(r => { if (!lista.prodotti.some(p => p.row === r)) selRows.delete(r); });
+    const n = selRows.size, vis = prodottiVisibili();
+    $('#selDel').disabled = !n;
+    $('#selDel').textContent = n ? 'Elimina (' + n + ')' : 'Elimina';
+    $('#selAll').textContent = vis.length && vis.every(p => selRows.has(p.row)) ? 'Deseleziona tutti' : 'Seleziona tutti';
+  }
+  $('#selAll').addEventListener('click', () => {
+    const vis = prodottiVisibili();
+    if (vis.every(p => selRows.has(p.row))) vis.forEach(p => selRows.delete(p.row));
+    else vis.forEach(p => selRows.add(p.row));
+    renderSpesa();
+  });
+  $('#selDel').addEventListener('click', async () => {
+    if (busy || !selRows.size) return;
+    const scelti = lista.prodotti.filter(p => selRows.has(p.row));
+    const n = scelti.length;
+    if (!confirm('Eliminare ' + (n === 1 ? '"' + scelti[0].prodotto + '"' : n + ' prodotti') + ' dalla lista?\nLo storico dei prezzi resta nel foglio.')) return;
+    busy = true; $('#selDel').disabled = true;
+    let fatti = 0, errore = null;
+    try {
+      for (const p of scelti) {
+        $('#selDel').textContent = 'Elimino ' + (fatti + 1) + ' di ' + n + '…';
+        try { lista = await call('deleteProdotto', p.row, p.prodotto); fatti++; }
+        catch(e) { if (e && e.code === 'AUTH') return; errore = errMsg(e); break; }
+      }
+    } finally {
+      busy = false;
+      selMode = false; selRows.clear();
+      renderSpesa();
+      if (errore) toast('Eliminati ' + fatti + ' su ' + n + ': ' + errore, true);
+      else toast(n === 1 ? 'Prodotto eliminato' : n + ' prodotti eliminati');
+    }
+  });
+  // pressione prolungata su un prodotto: entra in selezione con quel prodotto
+  (function(){
+    let timer = null, start = null;
+    const annulla = () => { clearTimeout(timer); timer = null; };
+    $('#spesaList').addEventListener('pointerdown', e => {
+      const card = e.target.closest('.prod'); if (!card || selMode) return;
+      start = [e.clientX, e.clientY];
+      timer = setTimeout(() => {
+        timer = null; ignoraClick = true;
+        if (navigator.vibrate) navigator.vibrate(15);
+        entraSelezione(Number(card.dataset.row));
+      }, 550);
+    });
+    $('#spesaList').addEventListener('pointermove', e => { if (timer && start && Math.hypot(e.clientX - start[0], e.clientY - start[1]) > 10) annulla(); });
+    ['pointerup','pointercancel','pointerleave'].forEach(t => $('#spesaList').addEventListener(t, annulla));
+    $('#spesaList').addEventListener('contextmenu', e => { if (e.target.closest('.prod')) e.preventDefault(); });
+  })();
 
   /* --- scheda prodotto --- */
   function openProdotto(p){
@@ -1165,10 +1272,16 @@
   /* --- eventi spesa --- */
   $('#quickAddBtn').addEventListener('click', quickAdd);
   $('#quickAdd').addEventListener('keydown', e => { if (e.key === 'Enter') quickAdd(); });
-  $('#spesaChips').addEventListener('click', e => { const b = e.target.closest('.chip'); if (!b) return; filtroSpesa = b.dataset.f; renderSpesa(); });
+  $('#spesaChips').addEventListener('click', e => {
+    const b = e.target.closest('.chip'); if (!b) return;
+    if (b.dataset.sel) { selMode ? esciSelezione() : entraSelezione(null); return; }
+    filtroSpesa = b.dataset.f; renderSpesa();
+  });
   $('#spesaList').addEventListener('click', e => {
     const card = e.target.closest('.prod'); if (!card) return;
+    if (ignoraClick) { ignoraClick = false; return; }
     const p = lista.prodotti.find(x => x.row === Number(card.dataset.row)); if (!p) return;
+    if (selMode) { selRows.has(p.row) ? selRows.delete(p.row) : selRows.add(p.row); renderSpesa(); return; }
     const act = e.target.closest('[data-act]');
     if (!act) return;
     if (act.dataset.act === 'toggle') toggleComprare(p);
@@ -1383,12 +1496,12 @@
   const cal = { y: new Date().getFullYear(), m: new Date().getMonth(), sel: iso(oggiD()), date: null };
   let dataEdit = null;
 
-  const demoD = { date: [ { row: 2, data: '2023-10-28', titolo: 'Anniversario Acciughì - {anni} anni insieme!', annuale: true } ] };
+  const demoD = { date: [ { row: 2, data: '2023-10-28', titolo: 'Anniversario Acciughì - {anni} anni insieme!', annuale: true, promemoria: { giorni: [1], ora: 9 } } ] };
   Object.assign(DEMO_LISTA, {
     getDate: () => JSON.parse(JSON.stringify(demoD)),
     saveData: d => {
-      if (d.row) Object.assign(demoD.date.find(x => x.row === d.row), { data: d.data, titolo: d.titolo, annuale: !!d.annuale });
-      else demoD.date.push({ row: Math.max(1, ...demoD.date.map(x => x.row)) + 1, data: d.data, titolo: d.titolo, annuale: !!d.annuale });
+      if (d.row) Object.assign(demoD.date.find(x => x.row === d.row), { data: d.data, titolo: d.titolo, annuale: !!d.annuale, promemoria: d.promemoria });
+      else demoD.date.push({ row: Math.max(1, ...demoD.date.map(x => x.row)) + 1, data: d.data, titolo: d.titolo, annuale: !!d.annuale, promemoria: d.promemoria });
       return JSON.parse(JSON.stringify(demoD));
     },
     deleteData: row => { demoD.date = demoD.date.filter(x => x.row !== row); return JSON.parse(JSON.stringify(demoD)); }
@@ -1427,10 +1540,28 @@
   const quandoEv = g => g === 0 ? 'Oggi!' : g === 1 ? 'Domani' : 'tra ' + g + ' giorni';
   const dataLunga = d => d.getDate() + ' ' + MESI[d.getMonth()].toLowerCase() + ' ' + d.getFullYear();
 
+  const PR_NOMI = {1:'1 giorno', 2:'2 giorni', 3:'3 giorni', 7:'1 settimana', 14:'2 settimane'};
+  (function(){ let o=''; for (let h = 6; h <= 22; h++) o += '<option value="'+h+'">'+String(h).padStart(2,'0')+':00</option>'; $('#dPrOra').innerHTML = o; })();
+  function testoPr(p, breve){
+    if (!p || !p.giorni || !p.giorni.length) return breve ? 'nessun promemoria' : 'Nessun promemoria';
+    const g = p.giorni.slice().sort((a,b)=>a-b).map(x => PR_NOMI[x]);
+    const lista = g.length > 1 ? g.slice(0,-1).join(', ') + ' e ' + g[g.length-1] : g[0];
+    return (breve ? '' : 'Promemoria ') + lista + ' prima alle ' + String(p.ora).padStart(2,'0') + ':00';
+  }
+  function setPr(p){
+    p = p || { giorni: [1], ora: 9 };
+    $$('#dPr button').forEach(b => { const g = Number(b.dataset.g); b.classList.toggle('on', g === 0 ? !p.giorni.length : p.giorni.includes(g)); });
+    $('#dPrOra').value = String(Math.min(22, Math.max(6, p.ora)));
+    $('#dPrOra').disabled = !p.giorni.length;
+  }
+  function getPr(){
+    const giorni = $$('#dPr button.on').map(b => Number(b.dataset.g)).filter(g => g > 0);
+    return { giorni, ora: Number($('#dPrOra').value) };
+  }
   function badge(d){ return '<div class="ev-badge"><b>' + d.getDate() + '</b><small>' + MESI_BREVI[d.getMonth()] + '</small>' + ACCIUGA + '</div>'; }
   function riga(p){
     return '<button class="ev-item" data-row="' + p.ev.row + '">' + badge(p.d)
-      + '<div class="ev-txt"><b>' + esc(titoloEv(p.ev, p.d.getFullYear())) + '</b><span>' + dataLunga(p.d) + (p.ev.annuale ? ' · ogni anno' : '') + '</span></div>'
+      + '<div class="ev-txt"><b>' + esc(titoloEv(p.ev, p.d.getFullYear())) + '</b><span>' + dataLunga(p.d) + (p.ev.annuale ? ' · ogni anno' : '') + '<br>🔔 ' + esc(testoPr(p.ev.promemoria, true)) + '</span></div>'
       + (p.giorni !== undefined ? '<span class="ev-when' + (p.giorni === 0 ? ' oggi' : '') + '">' + quandoEv(p.giorni) + '</span>' : '') + '</button>';
   }
 
@@ -1493,6 +1624,7 @@
     $('#dTitolo').value = ev ? ev.titolo : '';
     $('#dData').value = ev ? ev.data : cal.sel;
     $('#dAnnuale').checked = ev ? !!ev.annuale : false;
+    setPr(ev ? ev.promemoria : null);
     anteprimaData();
     openSheet('#sheetData');
     if (!ev) setTimeout(() => $('#dTitolo').focus(), 260);
@@ -1503,7 +1635,7 @@
     const ev = { titolo: t, data: v, annuale: $('#dAnnuale').checked };
     const tmp = cal.date; cal.date = [ev]; const nx = prossime()[0]; cal.date = tmp;
     if (!nx) { $('#dPreview').innerHTML = 'Questa data è già passata e non si ripete: resterà visibile solo nel calendario di quel mese.'; return; }
-    $('#dPreview').innerHTML = 'Comparirà il <b>' + dataLunga(nx.d) + '</b> (' + quandoEv(nx.giorni).toLowerCase() + ') come:<br><b>' + esc(titoloEv(ev, nx.d.getFullYear())) + '</b>';
+    $('#dPreview').innerHTML = 'Prossima volta: <b>' + dataLunga(nx.d) + '</b> (' + quandoEv(nx.giorni).toLowerCase() + '), con il titolo:<br><b>' + esc(titoloEv(ev, nx.d.getFullYear())) + '</b><br>🔔 ' + esc(testoPr(getPr()));
   }
   async function salvaData(){
     if (busy) return;
@@ -1512,10 +1644,10 @@
     if (!/^\d{4}-\d{2}-\d{2}$/.test(data)) return toast('Scegli la data', true);
     busy = true; $('#dSave').disabled = true; $('#dSave').textContent = 'Salvo…';
     try {
-      const r = await call('saveData', { row: dataEdit ? dataEdit.row : null, titoloOriginale: dataEdit ? dataEdit.titolo : '', titolo, data, annuale: $('#dAnnuale').checked });
+      const r = await call('saveData', { row: dataEdit ? dataEdit.row : null, titoloOriginale: dataEdit ? dataEdit.titolo : '', titolo, data, annuale: $('#dAnnuale').checked, promemoria: getPr() });
       cal.date = r.date || [];
       const d = daIso(data); if (!$('#dAnnuale').checked) { cal.y = d.getFullYear(); cal.m = d.getMonth(); cal.sel = data; }
-      closeSheets(); renderCal(); toast(dataEdit ? 'Data aggiornata' : 'Data aggiunta');
+      closeSheets(); renderCal(); toast(r.avviso || (dataEdit ? 'Data aggiornata' : 'Data aggiunta'), !!r.avviso);
     } catch(e) { toast(errMsg(e), true); }
     finally { busy = false; $('#dSave').disabled = false; $('#dSave').textContent = 'Salva'; }
   }
@@ -1523,7 +1655,7 @@
     if (!dataEdit || busy) return;
     if (!confirm('Eliminare "' + titoloEv(dataEdit, new Date().getFullYear()) + '"?')) return;
     busy = true;
-    try { const r = await call('deleteData', dataEdit.row, dataEdit.titolo); cal.date = r.date || []; closeSheets(); renderCal(); toast('Data eliminata'); }
+    try { const r = await call('deleteData', dataEdit.row, dataEdit.titolo); cal.date = r.date || []; closeSheets(); renderCal(); toast(r.avviso || 'Data eliminata', !!r.avviso); }
     catch(e) { toast(errMsg(e), true); }
     finally { busy = false; }
   }
@@ -1543,12 +1675,22 @@
   }));
   ['#dTitolo','#dData'].forEach(id => $(id).addEventListener('input', anteprimaData));
   $('#dAnnuale').addEventListener('change', anteprimaData);
+  $('#dPr').addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    if (b.dataset.g === '0') $$('#dPr button').forEach(x => x.classList.toggle('on', x === b));
+    else { b.classList.toggle('on'); $('#dPr button[data-g="0"]').classList.toggle('on', !$$('#dPr button.on').some(x => x.dataset.g !== '0')); }
+    $('#dPrOra').disabled = !getPr().giorni.length;
+    anteprimaData();
+  });
+  $('#dPrOra').addEventListener('change', anteprimaData);
   $('#dSave').addEventListener('click', salvaData);
   $('#dDelete').addEventListener('click', eliminaData);
 
   /* --- cambio sezione --- */
   function setView(v){
     view = v;
+    if (v !== 'spesa' && selMode) { selMode = false; selRows.clear(); }
+    $('#selBar').hidden = !(selMode && v === 'spesa');
     try { localStorage.setItem('ma_vista', v); } catch(e){}
     $$('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.view === v));
     $('#viewConti').hidden = v !== 'conti';
