@@ -23,7 +23,7 @@
     font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;font-size:16px}
   body{padding-bottom:calc(96px + env(safe-area-inset-bottom))}
   button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
-  input,select{font:inherit;color:inherit}
+  input,select,textarea{font:inherit;color:inherit}
 
   /* header + saldo */
   .top{background:linear-gradient(160deg,var(--brand) 0%,var(--brand-2) 100%);color:#fff;
@@ -147,8 +147,9 @@
   .lock-err{color:var(--neg);font-size:14px;min-height:20px;margin-top:10px}
 
   /* interruttore Conti / Spesa */
-  .tabs{display:grid;grid-template-columns:repeat(4,1fr);background:rgba(255,255,255,.14);border-radius:14px;padding:4px;margin-top:14px;gap:4px}
-  .tabs button{height:40px;border-radius:11px;font-weight:700;color:rgba(255,255,255,.85);font-size:13.5px;padding:0 2px}
+  .tabs{display:flex;overflow-x:auto;scrollbar-width:none;background:rgba(255,255,255,.14);border-radius:14px;padding:4px;margin-top:14px;gap:4px;scroll-behavior:smooth}
+  .tabs::-webkit-scrollbar{display:none}
+  .tabs button{flex:1 0 auto;height:40px;border-radius:11px;font-weight:700;color:rgba(255,255,255,.85);font-size:14px;padding:0 14px;white-space:nowrap}
   .tabs button.on{background:#fff;color:var(--brand)}
   [hidden]{display:none !important}
 
@@ -254,6 +255,37 @@
   .ev-when{font-size:12px;font-weight:700;color:var(--evento);background:var(--brand-soft);padding:4px 8px;border-radius:8px;white-space:nowrap}
   .ev-when.oggi{background:var(--evento);color:#fff}
   .input[type=date]{appearance:none;-webkit-appearance:none}
+
+  /* ricettario */
+  textarea.input{height:auto;min-height:110px;padding:12px 14px;line-height:1.45;resize:vertical;font-size:16px}
+  .search{position:relative;margin-top:12px}
+  .search .input{padding-left:40px;height:46px;font-size:16px}
+  .search::before{content:"";position:absolute;left:14px;top:50%;width:14px;height:14px;transform:translateY(-60%);border:2px solid var(--muted);border-radius:50%}
+  .search::after{content:"";position:absolute;left:27px;top:28px;width:7px;height:2px;background:var(--muted);transform:rotate(45deg)}
+  .ric{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);display:flex;gap:12px;padding:12px;align-items:center;width:100%;text-align:left}
+  .ric-ico{flex:0 0 54px;height:54px;border-radius:13px;background:var(--brand-soft);display:grid;place-items:center;font-size:26px}
+  .ric-main{flex:1;min-width:0}
+  .ric-main b{display:block;font-size:16px;line-height:1.25}
+  .ric-main span{display:block;font-size:13px;color:var(--muted);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .star{flex:0 0 40px;height:40px;border-radius:12px;font-size:22px;color:#c3ccd5;display:grid;place-items:center}
+  .star.on{color:#e0a800}
+  .ric-photo{width:100%;border-radius:14px;margin:4px 0 12px;display:block;max-height:340px;object-fit:cover;background:var(--bg)}
+  .ric-photo.wait{height:180px;animation:sh 1.2s infinite;background:linear-gradient(90deg,#e9eef3 0%,#f5f8fa 50%,#e9eef3 100%);background-size:200% 100%}
+  .ric-sec{font-size:13px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin:16px 0 6px}
+  .ric-ing{margin:0;padding-left:20px;line-height:1.55;font-size:15px}
+  .ric-txt{font-size:15px;line-height:1.6;white-space:pre-wrap}
+  .ric-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:18px}
+  .ric-actions .btn{height:44px;font-size:14px}
+  .photo-btns{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
+  .photo-btns .btn{height:48px;font-size:14px}
+  .ocr{background:var(--brand-soft);color:var(--brand);border-radius:13px;padding:12px 14px;font-size:14px;line-height:1.45;margin-bottom:14px}
+  .ocr.err{background:var(--warn-soft);color:var(--warn)}
+  .thumb{position:relative;margin-bottom:14px}
+  .thumb img{width:100%;max-height:220px;object-fit:cover;border-radius:13px;display:block}
+  .thumb button{position:absolute;top:8px;right:8px;background:rgba(20,33,46,.75);color:#fff;border-radius:10px;padding:6px 10px;font-size:13px;font-weight:700}
+  .catsel{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+  .catsel button{height:40px;border-radius:10px;background:#eef2f6;font-weight:700;font-size:13px;color:var(--muted)}
+  .catsel button.on{background:var(--brand);color:#fff}
   .pr{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
   .pr button{height:42px;border-radius:10px;background:#eef2f6;font-weight:700;font-size:13px;color:var(--muted)}
   .pr button.on{background:var(--evento);color:#fff}
@@ -299,6 +331,7 @@
       <button data-view="riepilogo">Riepilogo</button>
       <button data-view="spesa">Spesa</button>
       <button data-view="calendario">Calendario</button>
+      <button data-view="ricette">Ricette</button>
     </div>
   </div>
 </header>
@@ -317,6 +350,16 @@
   <div class="list" id="spesaList">
     <div class="skeleton"></div><div class="skeleton"></div>
   </div>
+</main>
+
+<main class="wrap" id="viewRic" hidden>
+  <section class="hero">
+    <div class="hero-label">Ricettario</div>
+    <div class="hero-who" id="ricCount">—</div>
+    <div class="search"><input class="input" id="ricSearch" placeholder="Cerca per nome o ingrediente…" autocomplete="off" type="search"></div>
+  </section>
+  <div class="chips" id="ricChips" style="margin-top:12px"></div>
+  <div class="list" id="ricList"><div class="skeleton"></div><div class="skeleton"></div></div>
 </main>
 
 <main class="wrap" id="viewCal" hidden>
@@ -471,6 +514,35 @@
       <button class="btn btn-danger" id="btnDelete" hidden>Elimina</button>
       <button class="btn btn-primary" id="btnSave">Salva</button>
     </div>
+  </div>
+</div>
+
+<!-- Scheda ricetta (lettura) -->
+<div class="sheet" id="sheetRicView" role="dialog" aria-modal="true">
+  <div class="sheet-inner" id="ricView"></div>
+</div>
+
+<!-- Modulo ricetta -->
+<div class="sheet" id="sheetRicForm" role="dialog" aria-modal="true">
+  <div class="sheet-inner">
+    <div class="grab"></div>
+    <h3 id="rfTitle">Nuova ricetta</h3>
+    <div class="photo-btns">
+      <button class="btn btn-soft" id="rfCam">📷 Scatta foto</button>
+      <button class="btn btn-soft" id="rfGal">🖼️ Dalla galleria</button>
+    </div>
+    <input type="file" id="rfCamIn" accept="image/*" capture="environment" hidden>
+    <input type="file" id="rfGalIn" accept="image/*" hidden>
+    <div id="rfOcr"></div>
+    <div id="rfThumb"></div>
+    <div class="field"><label for="rfTitolo">Titolo</label><input class="input" id="rfTitolo" placeholder="Es. Pasta con le sarde" autocomplete="off"></div>
+    <div class="field"><label>Categoria</label><div class="catsel" id="rfCat"></div></div>
+    <div class="field"><label for="rfPorz">Porzioni</label><input class="input" id="rfPorz" placeholder="Es. 4 persone" autocomplete="off"></div>
+    <div class="field"><label for="rfIng">Ingredienti <span style="text-transform:none;font-weight:500">(uno per riga)</span></label><textarea class="input" id="rfIng" rows="6" placeholder="500 g di bucatini&#10;4 sarde fresche&#10;1 bustina di zafferano"></textarea></div>
+    <div class="field"><label for="rfProc">Procedimento</label><textarea class="input" id="rfProc" rows="8"></textarea></div>
+    <div class="field"><label for="rfNote">Note</label><textarea class="input" id="rfNote" rows="3" style="min-height:70px" placeholder="Varianti, consigli, chi ce l'ha data…"></textarea></div>
+    <label class="switch" for="rfPref"><span><b>Preferita ★</b><small>Compare tra le preferite</small></span><input type="checkbox" id="rfPref"></label>
+    <div class="actions"><button class="btn btn-soft" data-close>Annulla</button><button class="btn btn-primary" id="rfSave">Salva</button></div>
   </div>
 </div>
 
@@ -912,7 +984,7 @@
   }
 
   /* ---------- eventi ---------- */
-  $('#btnAdd').addEventListener('click', () => view === 'calendario' ? openData(null) : openForm(null));
+  $('#btnAdd').addEventListener('click', () => view === 'calendario' ? openData(null) : view === 'ricette' ? openRicForm(null) : openForm(null));
   $('#btnRefresh').addEventListener('click', () => loadView(true));
   $('#btnRimborso').addEventListener('click', openRimborso);
   $('#backdrop').addEventListener('click', closeSheets);
@@ -1686,6 +1758,293 @@
   $('#dSave').addEventListener('click', salvaData);
   $('#dDelete').addEventListener('click', eliminaData);
 
+  /* =================================================================
+   *  RICETTARIO
+   * ================================================================= */
+  const CAT_NOMI = { ANTIPASTI:'Antipasti', PRIMI:'Primi', SECONDI:'Secondi', CONTORNI:'Contorni', DOLCI:'Dolci', ALTRO:'Altro' };
+  const CAT_ICO  = { ANTIPASTI:'🫒', PRIMI:'🍝', SECONDI:'🐟', CONTORNI:'🥗', DOLCI:'🍰', ALTRO:'🍽️' };
+  let ric = null;                 // { ricette, categorie }
+  let ricFiltro = 'tutte', ricCerca = '';
+  let ricAperta = null, ricEdit = null, rfFoto = null;   // rfFoto = { id, url }
+  const fotoCache = {};
+
+  const demoR = { ricette: [
+    { row: 2, titolo: 'PASTA CON LE SARDE', categoria: 'PRIMI', porzioni: '4 persone',
+      ingredienti: '400 g di bucatini\n400 g di sarde fresche\n1 finocchietto selvatico\n50 g di uvetta\n50 g di pinoli\n1 bustina di zafferano\n1 cipolla\nmollica tostata',
+      procedimento: 'Lessa il finocchietto in acqua salata e tienila per la pasta.\nSoffriggi la cipolla, aggiungi le sarde pulite, uvetta, pinoli e zafferano.\nCuoci i bucatini nell\'acqua del finocchietto, condisci e completa con la mollica tostata.',
+      note: 'La ricetta di nonna.', preferita: true, fotoId: '', docUrl: '', aggiornata: '2026-10-20' },
+    { row: 3, titolo: 'CAPONATA', categoria: 'CONTORNI', porzioni: '6', ingredienti: '2 melanzane\n1 sedano\n200 g di olive\n2 cucchiai di capperi\naceto e zucchero',
+      procedimento: 'Friggi le melanzane a cubetti. Prepara l\'agrodolce con sedano, olive e capperi, unisci tutto.', note: '', preferita: false, fotoId: '', docUrl: '', aggiornata: '2026-10-22' }
+  ], categorie: ['ANTIPASTI','PRIMI','SECONDI','CONTORNI','DOLCI','ALTRO'] };
+  Object.assign(DEMO_LISTA, {
+    getRicette: () => JSON.parse(JSON.stringify(demoR)),
+    saveRicetta: r => {
+      const x = { titolo: r.titolo.toUpperCase(), categoria: r.categoria, porzioni: r.porzioni, ingredienti: r.ingredienti, procedimento: r.procedimento, note: r.note, preferita: !!r.preferita, fotoId: r.fotoId || '', docUrl: '', aggiornata: new Date().toISOString().slice(0,10) };
+      if (r.row) Object.assign(demoR.ricette.find(y => y.row === r.row), x);
+      else demoR.ricette.push(Object.assign({ row: Math.max(1, ...demoR.ricette.map(y => y.row)) + 1 }, x));
+      return DEMO_LISTA.getRicette();
+    },
+    deleteRicetta: row => { demoR.ricette = demoR.ricette.filter(y => y.row !== row); return DEMO_LISTA.getRicette(); },
+    setPreferita: (row, t, v) => { demoR.ricette.find(y => y.row === row).preferita = !!v; return DEMO_LISTA.getRicette(); },
+    leggiFoto: () => ({ fotoId: 'demo-foto', testo: 'Torta di mele della zia\nPer 8 persone\nIngredienti\n3 mele\n200 g di farina\n150 g di zucchero\n3 uova\n1 bustina di lievito\nProcedimento\nMonta le uova con lo zucchero, aggiungi farina e lievito.\nUnisci le mele a fette e inforna a 180° per 40 minuti.', avviso: '' }),
+    getFoto: () => { throw new Error('Nell\'anteprima le foto non vengono salvate'); },
+    esportaDoc: () => { throw new Error('Nell\'anteprima non si creano documenti'); }
+  });
+
+  const norm = t => String(t || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  const titoloBello = t => { const x = String(t || '').toLowerCase(); return x.charAt(0).toUpperCase() + x.slice(1); };
+  const righe = t => String(t || '').split('\n').map(x => x.replace(/^[-•*·]\s*/, '').trim()).filter(Boolean);
+
+  async function loadRic(showToast){
+    $('#btnRefresh').classList.add('spin');
+    try {
+      ric = await call('getRicette');
+      renderRic();
+      if (showToast) toast('Ricettario aggiornato');
+    } catch(e) {
+      if (e && e.code === 'AUTH') return;
+      const msg = /non riconosciuta/i.test(errMsg(e)) ? 'Per usare il ricettario va aggiornato lo script del foglio (Code.gs versione 7).' : errMsg(e);
+      $('#ricList').innerHTML = '<div class="empty">' + esc(msg) + '</div>';
+      toast(msg, true);
+    } finally { $('#btnRefresh').classList.remove('spin'); }
+  }
+
+  function renderRic(){
+    if (!ric || view !== 'ricette') return;
+    const tutte = ric.ricette, pref = tutte.filter(r => r.preferita);
+    $('#ricCount').textContent = tutte.length ? tutte.length + (tutte.length === 1 ? ' ricetta' : ' ricette') + (pref.length ? ' · ' + pref.length + ' preferit' + (pref.length === 1 ? 'a' : 'e') : '') : 'Nessuna ricetta';
+    const cats = (ric.categorie || Object.keys(CAT_NOMI)).filter(c => tutte.some(r => r.categoria === c));
+    const opts = [['tutte','Tutte'], ['pref','★ Preferite']].concat(cats.map(c => ['c:' + c, CAT_NOMI[c] || c]));
+    if (!opts.some(o => o[0] === ricFiltro)) ricFiltro = 'tutte';
+    $('#ricChips').innerHTML = opts.map(o => '<button class="chip' + (o[0] === ricFiltro ? ' on' : '') + '" data-f="' + esc(o[0]) + '">' + esc(o[1]) + '</button>').join('');
+    let rs = tutte.slice();
+    if (ricFiltro === 'pref') rs = pref.slice();
+    else if (ricFiltro.startsWith('c:')) rs = rs.filter(r => r.categoria === ricFiltro.slice(2));
+    const q = norm(ricCerca).trim();
+    if (q) rs = rs.filter(r => q.split(/\s+/).every(w => norm(r.titolo + ' ' + r.ingredienti + ' ' + r.note).includes(w)));
+    rs.sort((a, b) => (b.preferita - a.preferita) || a.titolo.localeCompare(b.titolo, 'it'));
+    if (!rs.length) {
+      $('#ricList').innerHTML = '<div class="empty">' + (tutte.length ? 'Nessuna ricetta trovata.' : 'Il ricettario è vuoto.<br>Tocca "Nuova ricetta": puoi scriverla o fotografarla.') + '</div>';
+      return;
+    }
+    $('#ricList').innerHTML = rs.map(r => {
+      const ing = righe(r.ingredienti);
+      const sotto = [CAT_NOMI[r.categoria] || 'Altro', r.porzioni, ing.length ? ing.slice(0, 3).join(', ') + (ing.length > 3 ? '…' : '') : ''].filter(Boolean).join(' · ');
+      return '<div class="ric" data-row="' + r.row + '"><div class="ric-ico" data-act="open">' + (CAT_ICO[r.categoria] || '🍽️') + '</div>'
+        + '<button class="ric-main" data-act="open" style="text-align:left"><b>' + esc(titoloBello(r.titolo)) + (r.fotoId ? ' <small style="font-weight:500;color:var(--muted)">📷</small>' : '') + '</b><span>' + esc(sotto) + '</span></button>'
+        + '<button class="star' + (r.preferita ? ' on' : '') + '" data-act="star" aria-label="Preferita">' + (r.preferita ? '★' : '☆') + '</button></div>';
+    }).join('');
+  }
+
+  function testoRicetta(r){
+    let t = titoloBello(r.titolo) + '\n';
+    const info = [CAT_NOMI[r.categoria], r.porzioni ? 'Porzioni: ' + r.porzioni : ''].filter(Boolean).join(' · ');
+    if (info) t += info + '\n';
+    const ing = righe(r.ingredienti);
+    if (ing.length) t += '\nINGREDIENTI\n' + ing.map(x => '- ' + x).join('\n') + '\n';
+    if (r.procedimento.trim()) t += '\nPROCEDIMENTO\n' + r.procedimento.trim() + '\n';
+    if (r.note.trim()) t += '\nNOTE\n' + r.note.trim() + '\n';
+    return t;
+  }
+
+  function openRicView(r){
+    ricAperta = r;
+    const ing = righe(r.ingredienti);
+    let h = '<div class="grab"></div><div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start">'
+      + '<h3 style="margin:0">' + esc(titoloBello(r.titolo)) + '</h3><button class="star' + (r.preferita ? ' on' : '') + '" id="rvStar" aria-label="Preferita">' + (r.preferita ? '★' : '☆') + '</button></div>'
+      + '<div class="item-meta" style="margin:6px 0 12px"><span class="tag">' + esc(CAT_NOMI[r.categoria] || 'Altro') + '</span>' + (r.porzioni ? '<span class="tag grey">' + esc(r.porzioni) + '</span>' : '') + '</div>';
+    if (r.fotoId) h += fotoCache[r.fotoId] ? '<img class="ric-photo" src="' + fotoCache[r.fotoId] + '" alt="Foto della ricetta">' : '<div class="ric-photo wait" id="rvPhoto"></div>';
+    if (ing.length) h += '<div class="ric-sec">Ingredienti</div><ul class="ric-ing">' + ing.map(x => '<li>' + esc(x) + '</li>').join('') + '</ul>';
+    if (r.procedimento.trim()) h += '<div class="ric-sec">Procedimento</div><div class="ric-txt">' + esc(r.procedimento.trim()) + '</div>';
+    if (r.note.trim()) h += '<div class="ric-sec">Note</div><div class="ric-txt">' + esc(r.note.trim()) + '</div>';
+    h += '<div class="ric-actions">'
+      + '<button class="btn btn-primary" id="rvEdit">Modifica</button>'
+      + '<button class="btn btn-soft" id="rvCopy">Copia testo</button>'
+      + '<button class="btn btn-soft" id="rvDoc">' + (r.docUrl ? 'Aggiorna Word/Doc' : 'Crea Word/Doc') + '</button>'
+      + (navigator.share ? '<button class="btn btn-soft" id="rvShare">Condividi</button>' : '<button class="btn btn-soft" id="rvClose" data-close>Chiudi</button>')
+      + '</div>'
+      + (r.docUrl ? '<div class="hint" style="text-align:center;margin-top:10px"><a href="' + esc(r.docUrl) + '" target="_blank" rel="noopener" style="color:var(--brand);font-weight:700">Apri il documento Google</a> · da lì si scarica in Word (File → Scarica → .docx)</div>' : '')
+      + '<button class="btn btn-danger" id="rvDel" style="width:100%;margin-top:10px;height:44px;font-size:14px">Elimina ricetta</button>';
+    $('#ricView').innerHTML = h;
+    openSheet('#sheetRicView');
+    if (r.fotoId && !fotoCache[r.fotoId]) {
+      call('getFoto', r.fotoId).then(f => {
+        fotoCache[r.fotoId] = 'data:' + f.mime + ';base64,' + f.b64;
+        const el = $('#rvPhoto'); if (el && ricAperta === r) el.outerHTML = '<img class="ric-photo" src="' + fotoCache[r.fotoId] + '" alt="Foto della ricetta">';
+      }).catch(e => { const el = $('#rvPhoto'); if (el) el.outerHTML = '<div class="hint">Foto non disponibile: ' + esc(errMsg(e)) + '</div>'; });
+    }
+  }
+
+  async function aggiornaRic(fn, args, msg){
+    if (busy) return null;
+    busy = true;
+    try { const r = await call(fn, ...args); if (r && r.ricette) ric = Object.assign(ric || {}, { ricette: r.ricette }); if (r && r.categorie) ric.categorie = r.categorie; renderRic(); if (msg) toast(msg); return r; }
+    catch(e) { if (!(e && e.code === 'AUTH')) toast(errMsg(e), true); return null; }
+    finally { busy = false; }
+  }
+
+  $('#ricView').addEventListener('click', async e => {
+    const r = ricAperta; if (!r) return;
+    const id = e.target.closest('button') && e.target.closest('button').id;
+    if (id === 'rvEdit') { closeSheets(); setTimeout(() => openRicForm(r), 200); }
+    else if (id === 'rvCopy') {
+      try { await navigator.clipboard.writeText(testoRicetta(r)); toast('Ricetta copiata: incollala dove vuoi'); }
+      catch(err) { toast('Copia non riuscita su questo telefono', true); }
+    }
+    else if (id === 'rvShare') { try { await navigator.share({ title: titoloBello(r.titolo), text: testoRicetta(r) }); } catch(err) {} }
+    else if (id === 'rvStar') {
+      const out = await aggiornaRic('setPreferita', [r.row, r.titolo, !r.preferita]);
+      if (out) { const n = ric.ricette.find(x => x.row === r.row); if (n) openRicView(n); }
+    }
+    else if (id === 'rvDoc') {
+      const b = $('#rvDoc'); b.disabled = true; b.textContent = 'Creo il documento…';
+      const out = await aggiornaRic('esportaDoc', [r.row, r.titolo]);
+      if (out && out.url) {
+        toast('Documento pronto');
+        const n = ric.ricette.find(x => x.row === r.row); if (n) openRicView(n);
+        window.open(out.url, '_blank', 'noopener');
+      } else { b.disabled = false; b.textContent = 'Crea Word/Doc'; }
+    }
+    else if (id === 'rvDel') {
+      if (!confirm('Eliminare la ricetta "' + titoloBello(r.titolo) + '"?\nFoto e documento finiscono nel cestino di Drive (recuperabili per 30 giorni).')) return;
+      const out = await aggiornaRic('deleteRicetta', [r.row, r.titolo], 'Ricetta eliminata');
+      if (out) { ricAperta = null; closeSheets(); }
+    }
+  });
+
+  /* --- modulo --- */
+  function setCat(c){ $$('#rfCat button').forEach(b => b.classList.toggle('on', b.dataset.c === c)); }
+  $('#rfCat').innerHTML = Object.keys(CAT_NOMI).map(c => '<button type="button" data-c="' + c + '">' + CAT_ICO[c] + ' ' + CAT_NOMI[c] + '</button>').join('');
+  $('#rfCat').addEventListener('click', e => { const b = e.target.closest('button'); if (b) setCat(b.dataset.c); });
+
+  function mostraFoto(){
+    $('#rfThumb').innerHTML = rfFoto ? '<div class="thumb">' + (rfFoto.url ? '<img src="' + rfFoto.url + '" alt="">' : '<div class="ocr">📷 Foto allegata</div>') + '<button type="button" id="rfNoFoto">Togli foto</button></div>' : '';
+  }
+  function openRicForm(r){
+    ricEdit = r || null;
+    $('#rfTitle').textContent = r ? 'Modifica ricetta' : 'Nuova ricetta';
+    $('#rfTitolo').value = r ? titoloBello(r.titolo) : '';
+    setCat(r ? r.categoria : 'PRIMI');
+    $('#rfPorz').value = r ? r.porzioni : '';
+    $('#rfIng').value = r ? r.ingredienti : '';
+    $('#rfProc').value = r ? r.procedimento : '';
+    $('#rfNote').value = r ? r.note : '';
+    $('#rfPref').checked = !!(r && r.preferita);
+    rfFoto = r && r.fotoId ? { id: r.fotoId, url: fotoCache[r.fotoId] || '' } : null;
+    $('#rfOcr').innerHTML = r ? '' : '<div class="ocr">Scrivi la ricetta qui sotto, oppure <b>fotografala</b>: il testo viene letto in automatico e puoi correggerlo prima di salvare.</div>';
+    mostraFoto();
+    openSheet('#sheetRicForm');
+  }
+  $('#rfThumb').addEventListener('click', e => { if (e.target.id === 'rfNoFoto') { rfFoto = null; mostraFoto(); } });
+
+  // riduce la foto (lato lungo max 2000 px) prima di inviarla: più veloce e più leggera
+  async function comprimi(file){
+    let src;
+    try { src = await createImageBitmap(file, { imageOrientation: 'from-image' }); }
+    catch(e) {
+      src = await new Promise((ok, ko) => { const i = new Image(); i.onload = () => ok(i); i.onerror = () => ko(new Error('Formato immagine non supportato')); i.src = URL.createObjectURL(file); });
+    }
+    const w = src.width, h = src.height, k = Math.min(1, 2000 / Math.max(w, h));
+    const c = document.createElement('canvas'); c.width = Math.round(w * k); c.height = Math.round(h * k);
+    const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); g.drawImage(src, 0, 0, c.width, c.height);
+    return c.toDataURL('image/jpeg', 0.85);
+  }
+
+  // divide il testo letto in titolo / porzioni / ingredienti / procedimento
+  function analizzaTesto(testo){
+    const L = String(testo || '').split('\n').map(x => x.trim()).filter(Boolean);
+    const out = { titolo: '', porzioni: '', ingredienti: '', procedimento: '' };
+    if (!L.length) return out;
+    const isIng = l => /^ingredient[ie]\b/i.test(l);
+    const isProc = l => /^(procedimento|preparazione|esecuzione|metodo|istruzioni|come si fa)\b/i.test(l);
+    const iI = L.findIndex(isIng), iP = L.findIndex(isProc);
+    const primo = (iI === 0 || iP === 0) ? -1 : 0;
+    if (primo === 0 && L[0].length <= 70) out.titolo = L[0];
+    const pm = L.slice(0, Math.max(iI, 3)).join(' ').match(/(?:per|dosi per|porzioni:?)\s*(\d+)\s*(persone|porzioni)?/i);
+    if (pm) out.porzioni = pm[1] + ' ' + (pm[2] || 'persone').toLowerCase();
+    const resto = l => l.replace(/^[^:]*:\s*/, '').trim();
+    if (iI > -1) {
+      const fine = iP > iI ? iP : L.length;
+      let ing = L.slice(iI + 1, fine);
+      if (/:\s*\S/.test(L[iI])) ing.unshift(resto(L[iI]));
+      if (iP < 0) {               // senza titolo "procedimento": ingredienti = righe brevi iniziali
+        const k = ing.findIndex(l => l.length > 60);
+        if (k > -1) { out.procedimento = ing.slice(k).join('\n'); ing = ing.slice(0, k); }
+      }
+      out.ingredienti = ing.join('\n');
+    }
+    if (iP > -1) {
+      const p = L.slice(iP + 1); if (/:\s*\S/.test(L[iP])) p.unshift(resto(L[iP]));
+      out.procedimento = p.join('\n');
+    } else if (iI < 0) {
+      out.procedimento = L.slice(out.titolo ? 1 : 0).filter(l => !pm || !l.includes(pm[0])).join('\n');
+    }
+    return out;
+  }
+
+  async function daFoto(file){
+    if (!file) return;
+    if (busy) return;
+    busy = true;
+    $('#rfCam').disabled = $('#rfGal').disabled = $('#rfSave').disabled = true;
+    $('#rfOcr').innerHTML = '<div class="ocr">⏳ Preparo la foto…</div>';
+    try {
+      const dataUrl = await comprimi(file);
+      rfFoto = { id: null, url: dataUrl }; mostraFoto();
+      $('#rfOcr').innerHTML = '<div class="ocr">⏳ Leggo il testo della ricetta… (qualche secondo)</div>';
+      const r = await call('leggiFoto', dataUrl.split(',')[1], 'image/jpeg');
+      rfFoto.id = r.fotoId; fotoCache[r.fotoId] = dataUrl;
+      if (r.testo) {
+        const a = analizzaTesto(r.testo);
+        const pieni = ['#rfIng','#rfProc'].some(id => $(id).value.trim());
+        if (!pieni || confirm('Sostituire ingredienti e procedimento con il testo letto dalla foto?')) {
+          if (a.titolo && !$('#rfTitolo').value.trim()) $('#rfTitolo').value = a.titolo;
+          if (a.porzioni && !$('#rfPorz').value.trim()) $('#rfPorz').value = a.porzioni;
+          $('#rfIng').value = a.ingredienti;
+          $('#rfProc').value = a.procedimento || (!a.ingredienti ? r.testo : '');
+        }
+        $('#rfOcr').innerHTML = '<div class="ocr">✅ Testo letto dalla foto. <b>Controllalo</b>: la lettura automatica può sbagliare qualche parola, soprattutto con la scrittura a mano.</div>';
+      } else {
+        $('#rfOcr').innerHTML = '<div class="ocr err">' + esc(r.avviso || 'Nessun testo trovato') + ' La foto resta allegata: puoi scrivere la ricetta a mano.</div>';
+      }
+    } catch(e) {
+      if (!(e && e.code === 'AUTH')) {
+        const m = /non riconosciuta/i.test(errMsg(e)) ? 'Per le foto va aggiornato lo script del foglio (Code.gs versione 7).' : errMsg(e);
+        $('#rfOcr').innerHTML = '<div class="ocr err">' + esc(m) + '</div>';
+        if (rfFoto && !rfFoto.id) { rfFoto = null; mostraFoto(); }
+      }
+    } finally {
+      busy = false;
+      $('#rfCam').disabled = $('#rfGal').disabled = $('#rfSave').disabled = false;
+    }
+  }
+  $('#rfCam').addEventListener('click', () => $('#rfCamIn').click());
+  $('#rfGal').addEventListener('click', () => $('#rfGalIn').click());
+  ['#rfCamIn','#rfGalIn'].forEach(id => $(id).addEventListener('change', e => { const f = e.target.files && e.target.files[0]; e.target.value = ''; daFoto(f); }));
+
+  $('#rfSave').addEventListener('click', async () => {
+    const titolo = $('#rfTitolo').value.trim();
+    if (!titolo) return toast('Inserisci il titolo', true);
+    const cat = ($('#rfCat button.on') || {}).dataset;
+    const dati = { row: ricEdit ? ricEdit.row : null, titoloOriginale: ricEdit ? ricEdit.titolo : '', titolo: titolo.toUpperCase(),
+      categoria: cat ? cat.c : 'ALTRO', porzioni: $('#rfPorz').value.trim(), ingredienti: $('#rfIng').value.trim(),
+      procedimento: $('#rfProc').value.trim(), note: $('#rfNote').value.trim(), preferita: $('#rfPref').checked, fotoId: rfFoto && rfFoto.id ? rfFoto.id : '' };
+    $('#rfSave').textContent = 'Salvo…';
+    const out = await aggiornaRic('saveRicetta', [dati], ricEdit ? 'Ricetta aggiornata' : 'Ricetta salvata');
+    $('#rfSave').textContent = 'Salva';
+    if (out) closeSheets();
+  });
+
+  $('#ricChips').addEventListener('click', e => { const b = e.target.closest('.chip'); if (!b) return; ricFiltro = b.dataset.f; renderRic(); });
+  $('#ricSearch').addEventListener('input', e => { ricCerca = e.target.value; renderRic(); });
+  $('#ricList').addEventListener('click', async e => {
+    const card = e.target.closest('.ric'); if (!card || !ric) return;
+    const r = ric.ricette.find(x => x.row === Number(card.dataset.row)); if (!r) return;
+    const act = e.target.closest('[data-act]'); if (!act) return;
+    if (act.dataset.act === 'star') { r.preferita = !r.preferita; renderRic(); const ok = await aggiornaRic('setPreferita', [r.row, r.titolo, r.preferita]); if (!ok) loadRic(false); }
+    else openRicView(r);
+  });
+
   /* --- cambio sezione --- */
   function setView(v){
     view = v;
@@ -1697,12 +2056,14 @@
     $('#viewSpesa').hidden = v !== 'spesa';
     $('#viewRiep').hidden = v !== 'riepilogo';
     $('#viewCal').hidden = v !== 'calendario';
-    $('#btnAdd').hidden = v !== 'conti' && v !== 'calendario';
-    $('#fabLabel').textContent = v === 'calendario' ? 'Nuova data' : 'Nuova spesa';
+    $('#viewRic').hidden = v !== 'ricette';
+    $('#btnAdd').hidden = !['conti','calendario','ricette'].includes(v);
+    $('#fabLabel').textContent = v === 'calendario' ? 'Nuova data' : v === 'ricette' ? 'Nuova ricetta' : 'Nuova spesa';
+    const tb = $('#tabs button[data-view="' + v + '"]'); if (tb && tb.scrollIntoView) tb.scrollIntoView({ inline: 'nearest', block: 'nearest' });
     $('#updated').textContent = v === 'spesa' ? 'Lista della spesa' : (state.aggiornato ? 'Aggiornato alle ' + state.aggiornato : '');
     loadView(false);
   }
-  function loadView(showToast){ return view === 'spesa' ? loadSpesa(showToast) : view === 'calendario' ? loadCal(showToast) : load(showToast); }
+  function loadView(showToast){ return view === 'spesa' ? loadSpesa(showToast) : view === 'calendario' ? loadCal(showToast) : view === 'ricette' ? loadRic(showToast) : load(showToast); }
   $('#tabs').addEventListener('click', e => { const b = e.target.closest('button'); if (b && b.dataset.view !== view) setView(b.dataset.view); });
 
   /* ---------- accesso ---------- */
@@ -1750,7 +2111,7 @@
   }
 
   /* ---------- avvio ---------- */
-  try { const v = localStorage.getItem('ma_vista'); if (['spesa','conti','riepilogo','calendario'].includes(v)) view = v; } catch(e){}
+  try { const v = localStorage.getItem('ma_vista'); if (['spesa','conti','riepilogo','calendario','ricette'].includes(v)) view = v; } catch(e){}
   if (IS_DEMO) $('#demoBar').hidden = false;
   if (!IS_DEMO && !store.get()) showLock('');
   else setView(view);
