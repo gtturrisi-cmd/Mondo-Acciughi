@@ -568,15 +568,16 @@
     <div class="field">
       <label>Promemoria</label>
       <div class="pr" id="dPr">
+        <button type="button" data-g="0">Il giorno stesso</button>
         <button type="button" data-g="1">1 giorno prima</button>
         <button type="button" data-g="2">2 giorni prima</button>
         <button type="button" data-g="3">3 giorni prima</button>
         <button type="button" data-g="7">1 settimana prima</button>
         <button type="button" data-g="14">2 settimane prima</button>
-        <button type="button" data-g="0">Nessuno</button>
+        <button type="button" data-g="x">Nessuno</button>
       </div>
       <div class="pr-ora"><span>Alle ore</span><select class="input" id="dPrOra"></select></div>
-      <div class="hint">Puoi sceglierne più di uno. Le notifiche arrivano dal calendario Google "Mondo Acciughì".</div>
+      <div class="hint">Puoi sceglierne più di uno. Le notifiche arrivano a entrambi tramite l'app ntfy, intorno all'ora scelta.</div>
     </div>
     <div class="preview" id="dPreview"></div>
     <div class="actions">
@@ -1612,22 +1613,22 @@
   const quandoEv = g => g === 0 ? 'Oggi!' : g === 1 ? 'Domani' : 'tra ' + g + ' giorni';
   const dataLunga = d => d.getDate() + ' ' + MESI[d.getMonth()].toLowerCase() + ' ' + d.getFullYear();
 
-  const PR_NOMI = {1:'1 giorno', 2:'2 giorni', 3:'3 giorni', 7:'1 settimana', 14:'2 settimane'};
+  const PR_NOMI = {0:'il giorno stesso', 1:'1 giorno prima', 2:'2 giorni prima', 3:'3 giorni prima', 7:'1 settimana prima', 14:'2 settimane prima'};
   (function(){ let o=''; for (let h = 6; h <= 22; h++) o += '<option value="'+h+'">'+String(h).padStart(2,'0')+':00</option>'; $('#dPrOra').innerHTML = o; })();
   function testoPr(p, breve){
     if (!p || !p.giorni || !p.giorni.length) return breve ? 'nessun promemoria' : 'Nessun promemoria';
     const g = p.giorni.slice().sort((a,b)=>a-b).map(x => PR_NOMI[x]);
     const lista = g.length > 1 ? g.slice(0,-1).join(', ') + ' e ' + g[g.length-1] : g[0];
-    return (breve ? '' : 'Promemoria ') + lista + ' prima alle ' + String(p.ora).padStart(2,'0') + ':00';
+    return (breve ? '' : 'Promemoria ') + lista + ' alle ' + String(p.ora).padStart(2,'0') + ':00';
   }
   function setPr(p){
     p = p || { giorni: [1], ora: 9 };
-    $$('#dPr button').forEach(b => { const g = Number(b.dataset.g); b.classList.toggle('on', g === 0 ? !p.giorni.length : p.giorni.includes(g)); });
+    $$('#dPr button').forEach(b => b.classList.toggle('on', b.dataset.g === 'x' ? !p.giorni.length : p.giorni.includes(Number(b.dataset.g))));
     $('#dPrOra').value = String(Math.min(22, Math.max(6, p.ora)));
     $('#dPrOra').disabled = !p.giorni.length;
   }
   function getPr(){
-    const giorni = $$('#dPr button.on').map(b => Number(b.dataset.g)).filter(g => g > 0);
+    const giorni = $$('#dPr button.on').filter(b => b.dataset.g !== 'x').map(b => Number(b.dataset.g));
     return { giorni, ora: Number($('#dPrOra').value) };
   }
   function badge(d){ return '<div class="ev-badge"><b>' + d.getDate() + '</b><small>' + MESI_BREVI[d.getMonth()] + '</small>' + ACCIUGA + '</div>'; }
@@ -1749,8 +1750,8 @@
   $('#dAnnuale').addEventListener('change', anteprimaData);
   $('#dPr').addEventListener('click', e => {
     const b = e.target.closest('button'); if (!b) return;
-    if (b.dataset.g === '0') $$('#dPr button').forEach(x => x.classList.toggle('on', x === b));
-    else { b.classList.toggle('on'); $('#dPr button[data-g="0"]').classList.toggle('on', !$$('#dPr button.on').some(x => x.dataset.g !== '0')); }
+    if (b.dataset.g === 'x') $$('#dPr button').forEach(x => x.classList.toggle('on', x === b));
+    else { b.classList.toggle('on'); $('#dPr button[data-g="x"]').classList.toggle('on', !$$('#dPr button.on').some(x => x.dataset.g !== 'x')); }
     $('#dPrOra').disabled = !getPr().giorni.length;
     anteprimaData();
   });
