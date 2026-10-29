@@ -822,7 +822,7 @@
               : '<span class="tag">Metà</span>';
     const mese = r.meseFattura ? '<span class="tag grey">'+esc(r.meseFattura.charAt(0)+r.meseFattura.slice(1).toLowerCase())+'</span>' : '';
     const warn = unpaid ? '<span class="tag warn">Da pagare</span>' : '';
-    const ok = r.saldato ? '<span class="tag ok">Saldata</span>' : '';
+    const ok = (r.saldato ? '<span class="tag ok">Saldata</span>' : '') + (r.inAttesa ? '<span class="tag grey">Salvataggio…</span>' : '');
     const missing = (r.totale === null) ? '<span class="tag warn">Importo mancante</span>' : '';
     let paid;
     if (unpaid) paid = 'Nessun pagamento registrato';
@@ -848,6 +848,7 @@
 
   /* ---------- load ---------- */
   async function load(showToast){
+    if (inAttesa) return;
     $('#btnRefresh').classList.add('spin');
     try {
       state = await call('getData');
@@ -922,29 +923,50 @@
     box.innerHTML = txt;
   }
 
-  async function save(){
-    if (busy) return;
+  /* ---------- salvataggio "ottimista" ----------
+   * L'app aggiorna subito l'elenco e chiude il modulo; il foglio viene
+   * scritto in sottofondo, un'operazione alla volta. Se il foglio rifiuta
+   * la modifica, l'app lo dice e ricarica i dati veri. */
+  let coda = Promise.resolve(), inAttesa = 0;
+  function segnaAttesa(){
+    const t = $('#updated');
+    if (inAttesa) t.textContent = 'Salvataggio in corso…';
+    else if (view !== 'spesa') t.textContent = state.aggiornato ? 'Aggiornato alle ' + state.aggiornato : '';
+  }
+  function inSottofondo(fn, ok){
+    inAttesa++; segnaAttesa();
+    const p = coda.then(fn).then(r => { if (inAttesa === 1) { state = r; render(); renderRiep(); } if (ok) toast(ok); })
+      .catch(e => { if (!(e && e.code === 'AUTH')) toast('Non salvato: ' + errMsg(e), true); setTimeout(() => load(false), 50); })
+      .finally(() => { inAttesa--; segnaAttesa(); });
+    coda = p.catch(() => {});
+    return p;
+  }
+  function ricalcolaLocale(){
+    state.rows.forEach(calcRow);
+    state.saldo = round(state.rows.reduce((a, r) => a + (r.conguaglio || 0), 0));
+    render(); renderRiep();
+  }
+
+  function save(){
     const f = readForm();
     if (!f.voce) return toast('Inserisci la descrizione', true);
     if (Number.isNaN(f.totale) || Number.isNaN(f.pagatoAle) || Number.isNaN(f.pagatoPeppe)) return toast('Controlla gli importi: usa solo numeri', true);
     if (f.totale !== null && f.totale < 0) return toast('Il totale non può essere negativo', true);
-    busy = true; $('#btnSave').disabled = true; $('#btnSave').textContent = 'Salvo…';
-    try {
-      state = await call('saveSpesa', f);
-      render(); closeSheets(); toast(editing ? 'Spesa aggiornata' : 'Spesa aggiunta');
-    } catch(e) { toast(errMsg(e), true); }
-    finally { busy = false; $('#btnSave').disabled = false; $('#btnSave').textContent = 'Salva'; }
+    const nuova = !editing;
+    const locale = Object.assign({}, f, { inAttesa: true });
+    if (nuova) { locale.row = -Date.now(); state.rows.push(locale); }
+    else { const i = state.rows.findIndex(r => r.row === editing.row); if (i > -1) state.rows[i] = locale; }
+    ricalcolaLocale(); closeSheets();
+    inSottofondo(() => call('saveSpesa', f), nuova ? 'Spesa salvata nel foglio ✓' : 'Modifica salvata ✓');
   }
 
-  async function del(){
-    if (!editing || busy) return;
+  function del(){
+    if (!editing) return;
     if (!confirm('Eliminare "' + editing.voce + '"?')) return;
-    busy = true;
-    try {
-      state = await call('deleteSpesa', editing.row, editing.voce);
-      render(); closeSheets(); toast('Spesa eliminata');
-    } catch(e) { toast(errMsg(e), true); }
-    finally { busy = false; }
+    const r = editing;
+    state.rows = state.rows.filter(x => x.row !== r.row);
+    ricalcolaLocale(); closeSheets();
+    inSottofondo(() => call('deleteSpesa', r.row, r.voce), 'Spesa eliminata ✓');
   }
 
   /* ---------- rimborso ---------- */
@@ -978,10 +1000,9 @@
       pagatoAle: dir === 'ALE' ? v : -v, pagatoPeppe: dir === 'ALE' ? -v : v,
       anno: String(d.getFullYear()), trim: TRIM[d.getMonth()], periodo: m, meseFattura: m, meseSaldo: m
     };
-    busy = true; $('#btnSaveRimborso').disabled = true;
-    try { state = await call('saveSpesa', f); render(); closeSheets(); toast('Rimborso registrato'); }
-    catch(e) { toast(errMsg(e), true); }
-    finally { busy = false; $('#btnSaveRimborso').disabled = false; }
+    state.rows.push(Object.assign({}, f, { row: -Date.now(), inAttesa: true }));
+    ricalcolaLocale(); closeSheets();
+    inSottofondo(() => call('saveSpesa', f), 'Rimborso registrato ✓');
   }
 
   /* ---------- eventi ---------- */
@@ -998,7 +1019,9 @@
   $('#chips').addEventListener('click', e => { const b = e.target.closest('.chip'); if (!b) return; filter = b.dataset.f; render(); });
   $('#list').addEventListener('click', e => {
     const b = e.target.closest('.item'); if (!b) return;
-    const r = state.rows.find(x => x.row === Number(b.dataset.row)); if (r) openForm(r);
+    const r = state.rows.find(x => x.row === Number(b.dataset.row)); if (!r) return;
+    if (r.inAttesa) return toast('Un attimo: la spesa si sta salvando nel foglio');
+    openForm(r);
   });
   ['#segRip','#segDir'].forEach(id => $(id).addEventListener('click', e => {
     const b = e.target.closest('button'); if (!b) return; setSeg(id, b.dataset.v);
